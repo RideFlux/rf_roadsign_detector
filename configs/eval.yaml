@@ -1,9 +1,8 @@
 down_stride: 8
 task_name: eval
 
-eval_checkpoint: /home/yongwooklee/PER-roadsign_detector/outputs/2025-07-31/19-42-26/checkpoints/epoch_017.ckpt
+eval_checkpoint: checkpoints/best.ckpt
 inference_img_path: test_infer.png
-graph_img_path: graph.png
 detection_threshold: 0.5
 
 eval_mode: 0
