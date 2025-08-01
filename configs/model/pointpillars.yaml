@@ -1,0 +1,91 @@
+roadsign_detector:
+  num_classes: ${data.datasets.num_classes}
+  voxel_size: [0.16, 0.16, 4.0]                # x, y, z size
+  point_cloud_range: [-8, -48, -3, 0, 0, 1]    # x, y, z min, x, y, z max
+  max_num_points: 32                           # max number of points in a voxel
+  max_voxels: [10000, 10000]
+
+  module:
+    _target_: pointpillars.pointpillars_module.RoadSignDetectorModule
+    _recursive_: false
+    training_model: ${training_model}
+    exporting_onnx: ${exporting_onnx}
+    num_classes: ${model.roadsign_detector.num_classes}
+
+    pillar_layer:
+      _target_: pointpillars.model.pillar_layer.PillarLayer
+      _recursive_: False
+      voxel_size: ${model.roadsign_detector.voxel_size}
+      point_cloud_range: ${model.roadsign_detector.point_cloud_range}
+      max_num_points: ${model.roadsign_detector.max_num_points}
+      max_voxels: ${model.roadsign_detector.max_voxels}
+    
+    pillar_encoder:
+      _target_: pointpillars.model.pillar_encoder.PillarEncoder
+      _recursive_: False
+      point_cloud_range: ${model.roadsign_detector.point_cloud_range}
+      in_channel: 9
+      out_channel: 64
+      voxel_size: ${model.roadsign_detector.voxel_size}
+
+    backbone:
+      _target_: pointpillars.model.backbone.Backbone
+      _recursive_: False
+      in_channel: ${model.roadsign_detector.module.pillar_encoder.out_channel}
+      out_channels: [64, 128, 256]
+      layer_nums: [3, 5, 5]
+    
+    neck:
+      _target_: pointpillars.model.neck.Neck
+      _recursive_: False
+      in_channels: ${model.roadsign_detector.module.backbone.out_channels}
+      upsample_strides: [1, 2, 4]
+      out_channels: [128, 128, 128]
+    
+    head:
+      _target_: pointpillars.model.head.Head
+      _recursive_: False
+      in_channel: 384
+      n_anchors: 1
+      n_classes: ${model.roadsign_detector.num_classes}
+    
+    anchors:
+      _target_: pointpillars.anchors.Anchors
+      _recursive_: False
+      ranges: 
+        - ${model.roadsign_detector.point_cloud_range}
+      sizes: [[1.0, 1, 1.3]]
+
+    loss_module:
+      _target_: pointpillars.loss.loss.Loss
+      _recursive_: False
+      alpha: 0.7
+      gamma: 2
+      cls_w: 1.0
+      reg_w: 2.0
+    
+    optimizer:
+      _target_: torch.optim.adamw.AdamW
+      lr: 2e-3
+      betas: [0.95, 0.99]
+      weight_decay: 0.01
+
+    scheduler:
+      _target_: torch.optim.lr_scheduler.OneCycleLR
+      max_lr: 2e-3
+      pct_start: 0.4
+      anneal_strategy: 'cos'
+      cycle_momentum: True 
+      base_momentum: 0.85
+      max_momentum: 0.95
+      div_factor: 10
+
+    output_pool_nms: false
+    
+    # NMS parameters
+    nms_pre: 100
+    nms_thr: 0.01
+    score_thr: 0.1
+    max_num: 1
+    nclasses: ${model.roadsign_detector.num_classes}
+    assigners: null

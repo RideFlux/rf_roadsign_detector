@@ -1,0 +1,21 @@
+defaults:
+  - _self_
+  - datasets: pcd
+
+datamodule:
+  _target_: pcd.datamodule.RoadSignDataModule
+  _recursive_: False
+
+  data_processor:
+    _target_: pcd.data_processor.DataProcessor
+    dataset_info: ${data.datasets}
+    stride: 1
+    down_stride: ${down_stride}
+  
+  dataset_class:
+    _target_: pcd.dataset.RoadSignDataset
+    down_stride: ${down_stride}
+
+  batch_size: 16
+
+  num_workers: 16

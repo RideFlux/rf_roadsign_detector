@@ -1,0 +1,29 @@
+down_stride: 8
+task_name: eval
+
+eval_checkpoint: /home/yongwooklee/PER-roadsign_detector/outputs/2025-07-31/19-42-26/checkpoints/epoch_017.ckpt
+inference_img_path: test_infer.png
+graph_img_path: graph.png
+detection_threshold: 0.5
+
+eval_mode: 0
+# 0: Choose options
+# 1: Visualize in bird's eye view
+# 2: Visualize in 3D point cloud
+# 3: Only quantitative evaluation mode
+
+defaults:
+  - _self_
+  - data: roadsign_data
+  - model: pointpillars
+  - callbacks: default
+  - logger: mlflow
+  - trainer: ddp
+  - paths: default
+  - override hydra/hydra_logging: disabled
+  - override hydra/job_logging: disabled
+
+hydra:  
+  output_subdir: null  
+  run:  
+    dir: .

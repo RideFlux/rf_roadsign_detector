@@ -1,0 +1,11 @@
+outputs/
+*.pyc
+__pycache__/
+logs/
+
+childzone/
+joining/
+construct/
+build/
+tb_logs/
+runs/
