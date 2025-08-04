@@ -74,7 +74,7 @@ class RoadSignDataModule(LightningDataModule):
     def eval_dataloader(self) -> DataLoader[Any]:
         """평가 시에 raw_img를 포함하는 데이터 로더"""
         dataset = instantiate(self.dataset_class_dict)
-        dataset.setDataset(self.data_processor.get_data_list('test'))
+        dataset.setDataset(self.data_processor.get_data_list('test1'))
         print('eval dataset size :', len(dataset))
 
         return DataLoader(

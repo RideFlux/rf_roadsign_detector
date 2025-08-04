@@ -15,7 +15,7 @@ model_checkpoint:
 
 early_stopping:
   monitor: "total_loss"
-  patience: 100
+  patience: 5
   mode: "min"
 
 model_summary:

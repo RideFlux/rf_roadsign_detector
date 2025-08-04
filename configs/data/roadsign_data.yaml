@@ -8,7 +8,12 @@ datamodule:
 
   data_processor:
     _target_: pcd.data_processor.DataProcessor
-    dataset_info: ${data.datasets}
+    pickle_files:
+      train: /home/yongwooklee/LIDAR_DATA/train_set.pkl
+      val: /home/yongwooklee/LIDAR_DATA/val_set.pkl
+      test1: /home/yongwooklee/LIDAR_DATA/test1_set.pkl
+      test2: /home/yongwooklee/LIDAR_DATA/test2_set.pkl
+      test3: /home/yongwooklee/LIDAR_DATA/test3_set.pkl
     stride: 1
     down_stride: ${down_stride}
   
