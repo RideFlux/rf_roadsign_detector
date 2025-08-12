@@ -11,11 +11,11 @@ def main(cfg: DictConfig):
     
     eval_mode = cfg.eval_mode
     if eval_mode == 0:
-        print("\nChoose options")
-        print("1. Visualize in bird's eye view")
-        print("2. Visualize in 3D point cloud")
-        print("3. Only quantitative evaluation mode\n")
-        eval_mode = int(input("Select (1/2/3): "))
+        print("\n평가 모드를 선택해 주세요")
+        print("1. Bird's eye view(조감도)로 시각화하기")
+        print("2. 3D로 시각화하기")
+        print("3. 정량 평가만 진행하기\n")
+        eval_mode = int(input("1/2/3 중 하나 입력: "))
     print("")
     
     if eval_mode in [1, 2, 3]:

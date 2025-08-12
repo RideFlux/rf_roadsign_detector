@@ -68,8 +68,11 @@ def inference_test_imgs_qtt(model, cfg, mode):
 
             if mode == 2:
                 vis_pc(point_cloud,
-                       pred_bbox,
-                       pred_label)
+                               pred_bbox,
+                               pred_label)
+                t = input("Press Enter to continue, or 'q' to quit")
+                if(t.strip().lower() == 'q'):
+                    return
 
         try:
             data = next(data_iter)
@@ -132,7 +135,7 @@ def inference_test_imgs_qtt(model, cfg, mode):
     plt.colorbar()
     
     # Add class labels
-    class_names = [f'Class_{int(i)}' if i < num_classes else 'No object' for i in all_classes]
+    class_names = [f'Class_{int(i)+1}' if i < num_classes else 'No object' for i in all_classes]
     tick_marks = np.arange(n_classes)
     plt.xticks(tick_marks, class_names, rotation=45)
     plt.yticks(tick_marks, class_names)
