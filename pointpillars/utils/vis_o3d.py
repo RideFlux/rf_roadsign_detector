@@ -158,7 +158,6 @@ def vis_pc(pc, bbox=None, label=None):
     labels: (n, )
     scores: (n, )
     '''
-    print (bbox, label)
     if isinstance(pc, np.ndarray):
         pc = npy2ply(pc)
     

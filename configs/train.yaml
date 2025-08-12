@@ -1,7 +1,6 @@
 ckpt_path: null
 training_model: True
 exporting_onnx: False
-down_stride: 8
 
 defaults:
   - _self_

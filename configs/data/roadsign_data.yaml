@@ -15,11 +15,9 @@ datamodule:
       test2: /home/yongwooklee/LIDAR_DATA/test2_set.pkl
       test3: /home/yongwooklee/LIDAR_DATA/test3_set.pkl
     stride: 1
-    down_stride: ${down_stride}
   
   dataset_class:
     _target_: pcd.dataset.RoadSignDataset
-    down_stride: ${down_stride}
 
   batch_size: 16
 

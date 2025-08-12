@@ -37,5 +37,11 @@ class PillarLayer(nn.Module):
         for i, cur_coors in enumerate(coors):
             coors_batch.append(F.pad(cur_coors, (1, 0), value=i))
         coors_batch = torch.cat(coors_batch, dim=0) # (p1 + p2 + ... + pb, 1 + 3)
-
-        return pillars, coors_batch, npoints_per_pillar
+        
+        batch_dict = {}
+        
+        batch_dict['voxels'] = pillars
+        batch_dict['voxel_coords'] = coors_batch
+        batch_dict['voxel_num_points'] = npoints_per_pillar
+        
+        return batch_dict

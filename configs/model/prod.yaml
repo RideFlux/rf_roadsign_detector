@@ -1,0 +1,6 @@
+defaults:
+  - pointpillars
+
+roadsign_detector:
+  module:
+    _target_: pointpillars.pointpillars_module_prod.RoadSignDetectorModuleProd

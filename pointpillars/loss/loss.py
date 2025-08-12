@@ -1,4 +1,3 @@
-import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -36,7 +35,6 @@ class Loss(nn.Module):
         nclasses = bbox_cls_pred.size(1)
 
         batched_labels = F.one_hot(batched_labels, nclasses + 1)[:, :nclasses].float() # (n, 3)
-        np.printoptions(threshold=np.inf, linewidth=np.inf, precision=4, suppress=True)
         bbox_cls_pred_sigmoid = torch.sigmoid(bbox_cls_pred) # (n, 3)
         weights = self.alpha * (1 - bbox_cls_pred_sigmoid).pow(self.gamma) * batched_labels + \
              (1 - self.alpha) * bbox_cls_pred_sigmoid.pow(self.gamma) * (1 - batched_labels) # (n, 3)

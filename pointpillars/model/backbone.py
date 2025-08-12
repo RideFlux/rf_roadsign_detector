@@ -26,7 +26,8 @@ class Backbone(nn.Module):
             if isinstance(m, nn.Conv2d):
                 nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
 
-    def forward(self, x):
+    def forward(self, batch_dict):
+        x = batch_dict['spatial_features']
         outs = []
         for i in range(len(self.multi_blocks)):
             x = self.multi_blocks[i](x)

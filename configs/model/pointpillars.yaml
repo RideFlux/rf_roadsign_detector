@@ -19,19 +19,22 @@ roadsign_detector:
       point_cloud_range: ${model.roadsign_detector.point_cloud_range}
       max_num_points: ${model.roadsign_detector.max_num_points}
       max_voxels: ${model.roadsign_detector.max_voxels}
-    
-    pillar_encoder:
-      _target_: pointpillars.model.pillar_encoder.PillarEncoder
-      _recursive_: False
-      point_cloud_range: ${model.roadsign_detector.point_cloud_range}
-      in_channel: 9
-      out_channel: 64
+
+    pillar_vfe:
+      _target_: pointpillars.model.pillar_vfe.PillarVFE
+      _recursive_: false
+      num_point_features: 4
       voxel_size: ${model.roadsign_detector.voxel_size}
+      point_cloud_range: ${model.roadsign_detector.point_cloud_range}
+    
+    pillar_scatter:
+      _target_: pointpillars.model.pillar_scatter.PointPillarScatter
+      _recursive_: false
 
     backbone:
       _target_: pointpillars.model.backbone.Backbone
       _recursive_: False
-      in_channel: ${model.roadsign_detector.module.pillar_encoder.out_channel}
+      in_channel: 64
       out_channels: [64, 128, 256]
       layer_nums: [3, 5, 5]
     

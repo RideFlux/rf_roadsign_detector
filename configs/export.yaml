@@ -1,0 +1,16 @@
+ckpt_path: checkpoints/best.ckpt
+training_model: True
+exporting_onnx: False
+
+defaults:
+  - _self_
+  - data: roadsign_data
+  - model: prod
+  - callbacks: default
+  - logger: mlflow
+  - trainer: ddp
+  - paths: default
+
+task_name: export
+
+confidence_threshold: null

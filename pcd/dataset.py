@@ -3,13 +3,10 @@ from torch.utils.data import Dataset
 
 class RoadSignDataset(Dataset):
     def __init__(
-        self, 
-        down_stride: int,
+        self
     ):
         super().__init__()
         self.data_list = []
-        
-        self.down_stride = down_stride
         pass
 
     

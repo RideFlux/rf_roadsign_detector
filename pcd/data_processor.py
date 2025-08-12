@@ -10,10 +10,9 @@ import pickle
 from pcd.utils import read_pcd
 
 class DataProcessor:
-    def __init__(self, pickle_files: Dict, stride, down_stride):
+    def __init__(self, pickle_files: Dict, stride):
         self.pickle_files = pickle_files  # {'train': 'path/to/train.pkl', 'val': 'path/to/val.pkl', ...}
         self.stride = stride
-        self.down_stride = down_stride
         self.valid_split_names = pickle_files.keys()
         self.num_classes = 1  # 고정값으로 설정
         pass

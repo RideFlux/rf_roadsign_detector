@@ -3,6 +3,7 @@ from hydra.utils import instantiate
 
 import torch
 from torch import Tensor
+import torch.nn as nn
 from lightning import LightningModule
 
 from pointpillars.anchors import anchor_target, anchors2bboxes
@@ -17,7 +18,8 @@ class RoadSignDetectorModule(LightningModule):
         exporting_onnx: bool,
         num_classes: int = 5,  # Default value for backward compatibility
         pillar_layer: torch.nn.Module = None,
-        pillar_encoder: torch.nn.Module = None,
+        pillar_vfe: torch.nn.Module = None,
+        pillar_scatter: torch.nn.Module = None,
         backbone: torch.nn.Module = None,
         neck: torch.nn.Module = None,
         head: torch.nn.Module = None,
@@ -44,7 +46,8 @@ class RoadSignDetectorModule(LightningModule):
         self.assigners = assigners
         
         self.pillar_layer = instantiate(pillar_layer)
-        self.pillar_encoder = instantiate(pillar_encoder)
+        self.pillar_vfe = instantiate(pillar_vfe)
+        self.pillar_scatter = instantiate(pillar_scatter)
         self.backbone = instantiate(backbone)
         self.neck = instantiate(neck)
         self.head = instantiate(head)
@@ -53,23 +56,26 @@ class RoadSignDetectorModule(LightningModule):
         pass
 
     def forward(self, batched_pts, mode='val', batched_gt_bboxes=None, batched_gt_labels=None):
-        batch_size = len(batched_pts)
+        batch_size = len(batched_pts)  # Number of batches
         # batched_pts: list[tensor] -> pillars: (p1 + p2 + ... + pb, num_points, c), 
         #                              coors_batch: (p1 + p2 + ... + pb, 1 + 3), 
         #                              num_points_per_pillar: (p1 + p2 + ... + pb, ), (b: batch size)
         
         # Convert tensor to {n,4} ndarray
-        pillars, coors_batch, npoints_per_pillar = self.pillar_layer(batched_pts)
+        batch_dict = self.pillar_layer(batched_pts)
 
         # pillars: (p1 + p2 + ... + pb, num_points, c), c = 4
         # coors_batch: (p1 + p2 + ... + pb, 1 + 3)
         # npoints_per_pillar: (p1 + p2 + ... + pb, )
         #                     -> pillar_features: (bs, out_channel, y_l, x_l)
         
-        pillar_features = self.pillar_encoder(pillars, coors_batch, npoints_per_pillar)
+        batch_dict = self.pillar_vfe(batch_dict)
+        
+        batch_dict = self.pillar_scatter(batch_dict)
+        
         
         # xs:  [(bs, 64, 248, 216), (bs, 128, 124, 108), (bs, 256, 62, 54)]
-        xs = self.backbone(pillar_features)
+        xs = self.backbone(batch_dict)
 
         # x: (bs, 384, 248, 216)
         x = self.neck(xs)
@@ -91,22 +97,20 @@ class RoadSignDetectorModule(LightningModule):
             return bbox_cls_pred, bbox_pred, anchor_target_dict
         elif mode == 'val':
 
-            results = self.get_predicted_bboxes(pts=batched_pts,
-                                                bbox_cls_pred=bbox_cls_pred, 
+            results = self.get_predicted_bboxes(bbox_cls_pred=bbox_cls_pred, 
                                                 bbox_pred=bbox_pred,
                                                 batched_anchors=batched_anchors)
             return results
 
         elif mode == 'test':
-            results = self.get_predicted_bboxes(pts=batched_pts,
-                                                bbox_cls_pred=bbox_cls_pred,        
+            results = self.get_predicted_bboxes(bbox_cls_pred=bbox_cls_pred,        
                                                 bbox_pred=bbox_pred,
                                                 batched_anchors=batched_anchors)
             return results
         else:
             raise ValueError   
 
-    def get_predicted_bboxes_single(self, pts, bbox_cls_pred, bbox_pred, anchors):
+    def get_predicted_bboxes_single(self, bbox_cls_pred, bbox_pred, anchors):
         '''
         bbox_cls_pred: (n_anchors*3, 248, 216) 
         bbox_pred: (n_anchors*7, 248, 216)
@@ -117,67 +121,40 @@ class RoadSignDetectorModule(LightningModule):
             labels: (k, )
             scores: (k, )
         '''
-        # 0. pre-process 
-        bbox_cls_pred = bbox_cls_pred.permute(1, 2, 0).reshape(-1, self.nclasses)
-        bbox_pred = bbox_pred.permute(1, 2, 0).reshape(-1, 6)
+        # 1. reshape inputs
+        bbox_cls_pred = bbox_cls_pred.permute(1, 2, 0).reshape(-1, self.nclasses)  # [H*W*A, C]
+        bbox_pred = bbox_pred.permute(1, 2, 0).reshape(-1, 6)  # [H*W*A, 6]
         anchors = anchors.reshape(-1, 6)
+
+        # 2. sigmoid classification
+        bbox_cls_pred = torch.sigmoid(bbox_cls_pred)  # [N, C]
+
+        # 3. get top 1 score and its index across all classes
+        scores, labels = bbox_cls_pred.max(dim=1)  # [N], [N]
+        topk_scores, topk_indices = torch.topk(scores, 1)  # [1]
         
-        bbox_cls_pred = torch.sigmoid(bbox_cls_pred)
+        # 4. gather top prediction
+        topk_bbox_pred = bbox_pred[topk_indices]      # [1, 6]
+        topk_anchor = anchors[topk_indices]           # [1, 6]
+        topk_label = labels[topk_indices]             # [1]
+        topk_score = topk_scores                      # [1]
 
-        # 1. obtain self.nms_pre bboxes based on scores
-        inds = bbox_cls_pred.max(1)[0].topk(self.nms_pre)[1]
-        bbox_cls_pred = bbox_cls_pred[inds]
-        bbox_pred = bbox_pred[inds]
-        anchors = anchors[inds]
+        # 5. decode bbox
+        topk_bbox = anchors2bboxes(topk_anchor, topk_bbox_pred)  # [1, 7]
 
-        # 2. decode predicted offsets to bboxes
-        bbox_pred = anchors2bboxes(anchors, bbox_pred)
-        
-        ret_bboxes, ret_labels, ret_scores = [], [], []
-        for i in range(self.nclasses):
-            # 3.1 filter bboxes with scores below self.score_thr
-            cur_bbox_cls_pred = bbox_cls_pred[:, i]
-            score_inds = cur_bbox_cls_pred > 0 # self.score_thr
-            if score_inds.sum() == 0:
-                continue
+        # 6. truncate to max_num (==1 for now)
+        final_bboxes = topk_bbox[:self.max_num]
+        final_labels = topk_label[:self.max_num]
+        final_scores = topk_score[:self.max_num]
 
-            cur_bbox_cls_pred = cur_bbox_cls_pred[score_inds]
-            cur_bbox_pred = bbox_pred[score_inds]
-            
-            # replace nms. pick top 1 score bbox
-            order = cur_bbox_cls_pred.sort(0, descending=True)[1]
-            keep_inds = order[:1]
-
-            cur_bbox_cls_pred = cur_bbox_cls_pred[keep_inds]
-            cur_bbox_pred = cur_bbox_pred[keep_inds]
-
-            ret_bboxes.append(cur_bbox_pred)
-            ret_labels.append(torch.zeros_like(cur_bbox_pred[:, 0], dtype=torch.long) + i)
-            ret_scores.append(cur_bbox_cls_pred)
-
-        # 4. filter some bboxes if bboxes number is above self.max_num
-        if len(ret_bboxes) == 0:
-            return {
-                'lidar_bboxes': [],
-                'labels': [],
-                'scores': []
-            }
-        ret_bboxes = torch.cat(ret_bboxes, 0)
-        ret_labels = torch.cat(ret_labels, 0)
-        ret_scores = torch.cat(ret_scores, 0)
-        if ret_bboxes.size(0) > self.max_num:
-            final_inds = ret_scores.topk(self.max_num)[1]
-            ret_bboxes = ret_bboxes[final_inds]
-            ret_labels = ret_labels[final_inds]
-            ret_scores = ret_scores[final_inds]
         result = {
-            'lidar_bboxes': ret_bboxes.detach().cpu().numpy(),
-            'labels': ret_labels.detach().cpu().numpy(),
-            'scores': ret_scores.detach().cpu().numpy()
+            'final_bboxes': final_bboxes,
+            'final_labels': final_labels,
+            'final_scores': final_scores
         }
         return result
 
-    def get_predicted_bboxes(self, pts, bbox_cls_pred, bbox_pred, batched_anchors):
+    def get_predicted_bboxes(self, bbox_cls_pred, bbox_pred, batched_anchors):
         '''
         bbox_cls_pred: (bs, n_anchors*3, 248, 216) 
         bbox_pred: (bs, n_anchors*7, 248, 216)
@@ -191,10 +168,9 @@ class RoadSignDetectorModule(LightningModule):
         results = []
         bs = bbox_cls_pred.size(0)
         for i in range(bs):
-            result = self.get_predicted_bboxes_single(pts=pts,
-                                                        bbox_cls_pred=bbox_cls_pred[i],
-                                                        bbox_pred=bbox_pred[i],
-                                                        anchors=batched_anchors[i])
+            result = self.get_predicted_bboxes_single(bbox_cls_pred=bbox_cls_pred[i],
+                                                      bbox_pred=bbox_pred[i],
+                                                      anchors=batched_anchors[i])
             results.append(result)
         return results
 

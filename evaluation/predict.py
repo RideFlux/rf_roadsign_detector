@@ -35,9 +35,9 @@ def inference_test_imgs_qtt(model, cfg, mode):
             point_cloud = point_clouds[i].detach().cpu().numpy()
             gt_bboxes = boxes[i].detach().cpu().numpy()
             gt_labels = labels[i].detach().cpu().numpy()
-            pred_bbox = detects[i]["lidar_bboxes"][0]
-            pred_label = detects[i]["labels"][0]
-            pred_score = detects[i]["scores"][0]
+            pred_bbox = detects[i]["final_bboxes"][0].detach().cpu().numpy()
+            pred_label = detects[i]["final_labels"][0].detach().cpu().numpy()
+            pred_score = detects[i]["final_scores"][0].detach().cpu().numpy()
 
             score_list.append(pred_score)
             if len(gt_bboxes) > 0:
