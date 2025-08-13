@@ -37,6 +37,8 @@ CUDA available: True
 Hydra version: 1.3.2
 ```
 
+> CUDA available이 False라면 모델 평가만 진행할 수 있습니다.
+
 ### 2. CUDA 코드 빌드
 
 학습 및 평가 시에 사용하는 코드 중 일부분이 성능상의 이유로 `.cu(.cpp)` 파일로 작성되어있습니다. 이를 파이썬 코드에서 사용할 수 있도록 빌드하는 과정이 필요합니다.
@@ -56,7 +58,7 @@ python setup.py build_ext --inplace
 아래처럼 dataset이 있다고 가정합니다. `.pcd` 파일과, 라벨 데이터 파일 (`.txt`)이 같은 폴더에 들어있는 환경을 가정하고 있습니다.
 
 ```
-/home/o-bard-o/LIDAR_DATA
+/home/rideflux/LIDAR_DATA
 ├── 10_binary
 │   ├── 123_1.1m.pcd
 │   ├── 123_1.1m.txt
@@ -81,7 +83,7 @@ python setup.py build_ext --inplace
 위 예시 기준으로는 아래와 같이 수정하시면 됩니다.
 ```py
 # collect_pcd_data.py
-root_dir = '/home/o-bard-o/LIDAR_DATA'
+root_dir = '/home/rideflux/LIDAR_DATA'
 ...
 ```
 
@@ -104,7 +106,7 @@ python collect_pcd_data.py
 와 같은 파일들이 생겼다면 성공입니다.
 
 ```
-/home/o-bard-o/LIDAR_DATA
+/home/rideflux/LIDAR_DATA
 ├── 10_binary
 │   ├── 123_1.1m.pcd
 │   └── ... 
@@ -128,7 +130,7 @@ python collect_pcd_data.py
 학습데이터 만들기에서 사용한 폴더명을 그대로 사용하시면 됩니다.
 
 ```yaml
-dataset_root_dir: /home/o-bard-o/LIDAR_DATA
+dataset_root_dir: /home/rideflux/LIDAR_DATA
 ```
 
 ### 3. 학습하기
@@ -155,7 +157,7 @@ python train.py
 만약 새로 학습시킨 체크포인트를 평가하고 싶다면 [eval.yaml](./configs/eval.yaml)에서 아래와 같이 `outputs/yyyy-MM-dd/HH-mm-ss/checkpoints/epoch_***.ckpt`로 수정하면 됩니다.
 
 ```yaml
-eval_checkpoint: /home/o-bard-o/PER-roadsign_detector/outputs/2025-07-31/19-42-26/checkpoints/epoch_017.ckpt
+eval_checkpoint: /home/rideflux/roadsign-detector/outputs/2025-07-31/19-42-26/checkpoints/epoch_017.ckpt
 ```
 
 수정한 뒤 `eval.py`를 실행합니다.

@@ -4,7 +4,7 @@ import pickle
 import numpy as np
 
 # 설정
-root_dir = '/home/yongwooklee/LIDAR_DATA'
+root_dir = '/home/rideflux/LIDAR_DATA'
 
 # 결과 파일
 train_file = 'train_set.pkl'

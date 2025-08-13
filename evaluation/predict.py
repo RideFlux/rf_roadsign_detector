@@ -4,7 +4,7 @@ from matplotlib import pyplot as plt
 import matplotlib
 import numpy as np
 import torch
-
+from rich.progress import track
 from evaluation.utils import compute_distance, create_hyperlink
 from pointpillars.utils.vis_o3d import draw_bev, vis_pc
 
@@ -23,11 +23,13 @@ def inference_test_imgs_qtt(model, cfg, mode):
     if mode == 1:
         create_hyperlink(cfg.inference_img_path, 'Inference Image')
         
-    while True:
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    batch_len = len(data_iter)
+    for _ in track(range(batch_len), description="Processing batches"):
         point_clouds, boxes, labels = data
         
         for i in range(len(point_clouds)):
-            point_clouds[i] = point_clouds[i].cuda()
+            point_clouds[i] = point_clouds[i].to(device)
         with torch.no_grad():
             detects = model(point_clouds, mode='test')
         

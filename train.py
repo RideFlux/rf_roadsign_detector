@@ -26,14 +26,15 @@ def main(cfg: DictConfig):
 
     logger: List[Logger] = TensorBoardLogger("tb_logs", name="pointpillars-3d")
 
-    trainer: Trainer = hydra.utils.instantiate(cfg.trainer, callbacks=callbacks, logger=logger)
-
     datamodule : LightningDataModule = hydra.utils.instantiate(cfg.data.datamodule)
+    
+    trainer: Trainer = hydra.utils.instantiate(cfg.trainer, callbacks=callbacks, logger=logger)
 
     model : LightningModule = hydra.utils.instantiate(cfg.model.roadsign_detector.module)
 
-    log.info("Starting training!")
-    trainer.fit(model=model, datamodule=datamodule)
+    trainer.fit(model=model, 
+                train_dataloaders=datamodule.train_dataloader(), 
+                val_dataloaders=datamodule.val_dataloader())
 
     return
 

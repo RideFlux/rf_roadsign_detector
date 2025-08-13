@@ -32,7 +32,8 @@ def main(cfg: DictConfig):
             model = model.cuda()
 
         print(f"Loading checkpoint from {ckpt_path}...")
-        checkpoint = torch.load(ckpt_path, weights_only=False)
+        map_location = 'cuda' if torch.cuda.is_available() else 'cpu'
+        checkpoint = torch.load(ckpt_path, weights_only=False, map_location=map_location)
         loaded_state_dict = checkpoint['state_dict']
 
         model.load_state_dict(loaded_state_dict, strict=False)

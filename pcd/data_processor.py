@@ -1,12 +1,8 @@
-import os
-import random
 from typing import Dict
 import sys
 import numpy as np
-import warnings
-from tqdm import tqdm
 import pickle
-
+from rich.progress import track
 from pcd.utils import read_pcd
 
 class DataProcessor:
@@ -30,7 +26,8 @@ class DataProcessor:
         
         # Process data with progress bar
         processed_data = []
-        for item in tqdm(dataset[::self.stride], desc=f"Processing {split_name} data", unit="files"):
+        
+        for item in track(dataset[::self.stride], description=f"Processing {split_name} data", finished_style="rgb(249,38,114)"):
             result = self._read_data_from_pickle(item)
             if result is not None:
                 processed_data.append(result)
