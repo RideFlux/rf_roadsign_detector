@@ -143,7 +143,9 @@ python train.py
 
 기본적으로 epoch은 총 500번 돌게 되어있으며, 최소 20번의 epoch 실행 후 더이상 성능 개선이 이뤄지지 않는다면 멈추게 되어있습니다. (제공해주신 데이터 기준으로 약 22번 실행 후 종료되었습니다.)
 
-> Processing train data:  74%|█████████████████████▍       | 6712/9078 [00:08<00:03, 701.10files/s]
+> Processing train data <span style="color:#f92672;">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</span> 100% 0:00:10  
+> train dataset size : 9078  
+> Processing val data <span style="color:#f92672;">━━━━━━━━━━━━━━━━━━━━━━━━━━━━╸</span>━━━━━━━━━━━  72% 0:00:01
 
 
 위 과정이 종료된 후, 
