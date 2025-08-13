@@ -9,3 +9,5 @@ construct/
 build/
 tb_logs/
 runs/
+
+*.so
