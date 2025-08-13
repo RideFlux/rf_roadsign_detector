@@ -9,6 +9,7 @@ from evaluation.utils import compute_distance, create_hyperlink
 from pointpillars.utils.vis_o3d import draw_bev, vis_pc
 
 def inference_test_imgs_qtt(model, cfg, mode):
+
     score_list = []
     result_list = []
     
@@ -25,7 +26,10 @@ def inference_test_imgs_qtt(model, cfg, mode):
         
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     batch_len = len(data_iter)
-    for _ in track(range(batch_len), description="Processing batches"):
+    
+    seq = track(range(batch_len), description="Processing batches") if mode == 3 else range(batch_len)
+
+    for _ in seq:
         point_clouds, boxes, labels = data
         
         for i in range(len(point_clouds)):
