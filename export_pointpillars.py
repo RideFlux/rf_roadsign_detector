@@ -105,111 +105,51 @@ def modify_onnx(onnx_simp,
     reshape_0_shape = gs.Constant(name="reshape_0_shape", values = np.array([MAX_N_VOXELS * MAX_POINTS_PER_VOXEL, 10], dtype=np.int64))
     reshape_0.inputs.append(reshape_0_shape)
     reshape_0_out = gs.Variable(name="reshape_0_out", shape = [MAX_N_VOXELS * MAX_POINTS_PER_VOXEL, 10], dtype=np.float32)
-    reshape_0.outputs.append(reshape_0_out)
+    reshape_0.outputs.append(reshape_0_out) 
     graph.nodes.append(reshape_0)
-
-
-    '''
-    MLP 연결하기
-    pillar_vfe에서 MLP가 2개라서 아래와 같이 하는데 갯수가 바뀌면 코드도 바꿔야함
-    일반적으로 바뀔일 없을 것 같음
-    '''
-    # 첫번째 MLP 찾기
+    
     #====================================================================================================#
+
     matmul_op_0 = [node for node in graph.nodes if node.op == "MatMul"][0]
     matmul_op_0.inputs[0] = reshape_0_out
-    matmul_op_0_out = gs.Variable(name="matmul_op_0_out", shape = [MAX_N_VOXELS * MAX_POINTS_PER_VOXEL, 32], dtype=np.float32)
+    matmul_op_0_out = gs.Variable(name="matmul_op_0_out", shape = [MAX_N_VOXELS * MAX_POINTS_PER_VOXEL, 64], dtype=np.float32)
     matmul_op_0.outputs[0] = matmul_op_0_out
 
     bn_op_0 = [node for node in graph.nodes if node.op == "BatchNormalization"][0]
     bn_op_0.inputs[0] = matmul_op_0_out
-    bn_op_0_out = gs.Variable(name="bn_op_0_out", shape = [MAX_N_VOXELS * MAX_POINTS_PER_VOXEL, 32], dtype=np.float32)
+    bn_op_0_out = gs.Variable(name="bn_op_0_out", shape = [MAX_N_VOXELS * MAX_POINTS_PER_VOXEL, 64], dtype=np.float32)
     bn_op_0.outputs[0] = bn_op_0_out
 
     relu_op_0 = [node for node in graph.nodes if node.op == "Relu"][0]
     relu_op_0.inputs[0] = bn_op_0_out
-    relu_op_0_out = gs.Variable(name="relu_op_0_out", shape = [MAX_N_VOXELS * MAX_POINTS_PER_VOXEL, 32], dtype=np.float32)
+    relu_op_0_out = gs.Variable(name="relu_op_0_out", shape = [MAX_N_VOXELS * MAX_POINTS_PER_VOXEL, 64], dtype=np.float32)
     relu_op_0.outputs[0] = relu_op_0_out
     #====================================================================================================#
 
     reshape_1 = gs.Node(name="reshape_1", op = "Reshape")
     reshape_1.inputs.append(relu_op_0_out)
-    reshape_1_shape = gs.Constant(name="reshape_1_shape", values = np.array([MAX_N_VOXELS, MAX_POINTS_PER_VOXEL, 32], dtype=np.int64))
+    reshape_1_shape = gs.Constant(name="reshape_1_shape", values = np.array([MAX_N_VOXELS, MAX_POINTS_PER_VOXEL, 64], dtype=np.int64))
     reshape_1.inputs.append(reshape_1_shape)
-    reshape_1_out = gs.Variable(name="reshape_1_out", shape = [MAX_N_VOXELS, MAX_POINTS_PER_VOXEL, 32], dtype=np.float32)
+    reshape_1_out = gs.Variable(name="reshape_1_out", shape = [MAX_N_VOXELS, MAX_POINTS_PER_VOXEL, 64], dtype=np.float32)
     reshape_1.outputs.append(reshape_1_out)
     graph.nodes.append(reshape_1)
 
-    # MLP이후 voxel안에 있는 point에 대해 maxpooling + tile해서 32채널, MLP output 32 channel 이렇게 두개를 concat해서 64채널 만드는 과정 
+    # voxel 내 point를 maxpooling 하여 voxel당 하나의 feature를 만들어 냄
     #====================================================================================================#
     reducemax_op_0 = [node for node in graph.nodes if node.op == "ReduceMax"][0]
     reducemax_op_0.inputs[0] = reshape_1_out
-    reducemax_op_out_0 = gs.Variable(name="reducemax_0_op_out", shape = [MAX_N_VOXELS, 1, 32], dtype=np.float32)
-    reducemax_op_0.outputs[0] = reducemax_op_out_0
-
-    tile_op = [node for node in graph.nodes if node.op == "Tile"][0]
-    tile_op.inputs[0] = reducemax_op_out_0
-    tile_op_out = gs.Variable(name="tile_0_op_out", shape = [MAX_N_VOXELS, MAX_POINTS_PER_VOXEL, 32], dtype=np.float32)
-    tile_op.outputs[0] = tile_op_out
-
-    concat_op = [node for node in graph.nodes if node.op == "Concat"][1]
-    concat_op.inputs.clear()
-    concat_op.inputs.append(reshape_1_out)
-    concat_op.inputs.append(tile_op_out)
-    concat_op_out = gs.Variable(name="concat_op_out", shape = [MAX_N_VOXELS, MAX_POINTS_PER_VOXEL, 64], dtype=np.float32)
-    concat_op.outputs[0] = concat_op_out
+    reducemax_op_0.attrs['keepdims'] = [0]
+    reducemax_op_out = gs.Variable(name="reducemax_0_op_out", shape = [MAX_N_VOXELS, 64], dtype=np.float32)
+    reducemax_op_0.outputs[0] = reducemax_op_out
     #====================================================================================================#
 
     reshape_2 = gs.Node(name="reshape_2", op = "Reshape")
-    reshape_2.inputs.append(concat_op_out)
-    reshape_2_shape = gs.Constant(name="reshape_2_shape", values = np.array([MAX_N_VOXELS * MAX_POINTS_PER_VOXEL, 64], dtype=np.int64))
+    reshape_2.inputs.append(reducemax_op_out)
+    reshape_2_shape = gs.Constant(name="reshape_2_shape", values = np.array([1, MAX_N_VOXELS, 64], dtype=np.int64))
     reshape_2.inputs.append(reshape_2_shape)
-    reshape_2_out = gs.Variable(name="reshape_2_out", shape = [MAX_N_VOXELS * MAX_POINTS_PER_VOXEL, 64], dtype=np.float32)
+    reshape_2_out = gs.Variable(name="voxels", shape = [1, MAX_N_VOXELS, 64], dtype=np.float32)
     reshape_2.outputs.append(reshape_2_out)
     graph.nodes.append(reshape_2)
-
-    # 두번째 MLP 찾기
-    #====================================================================================================#
-    matmul_op_1 = [node for node in graph.nodes if node.op == "MatMul"][1]
-    matmul_op_1.inputs[0] = reshape_2_out
-    matmul_op_1_out = gs.Variable(name="matmul_op_1_out", shape = [MAX_N_VOXELS * MAX_POINTS_PER_VOXEL, 64], dtype=np.float32)
-    matmul_op_1.outputs[0] = matmul_op_1_out
-
-    bn_op_1 = [node for node in graph.nodes if node.op == "BatchNormalization"][1]
-    bn_op_1.inputs[0] = matmul_op_1_out
-    bn_op_1_out = gs.Variable(name="bn_op_1_out", shape = [MAX_N_VOXELS * MAX_POINTS_PER_VOXEL, 64], dtype=np.float32)
-    bn_op_1.outputs[0] = bn_op_1_out
-
-    relu_op_1 = [node for node in graph.nodes if node.op == "Relu"][1]
-    relu_op_1.inputs[0] = bn_op_1_out
-    relu_op_1_out = gs.Variable(name="relu_op_1_out", shape = [MAX_N_VOXELS * MAX_POINTS_PER_VOXEL, 64], dtype=np.float32)
-    relu_op_1.outputs[0] = relu_op_1_out
-    #====================================================================================================#
-
-    reshape_3 = gs.Node(name="reshape_3", op = "Reshape")
-    reshape_3.inputs.append(relu_op_1_out)
-    reshape_3_shape = gs.Constant(name="reshape_3_shape", values = np.array([MAX_N_VOXELS, MAX_POINTS_PER_VOXEL, 64], dtype=np.int64))
-    reshape_3.inputs.append(reshape_3_shape)
-    reshape_3_out = gs.Variable(name="reshape_3_out", shape = [MAX_N_VOXELS, MAX_POINTS_PER_VOXEL, 64], dtype=np.float32)
-    reshape_3.outputs.append(reshape_3_out)
-    graph.nodes.append(reshape_3)
-
-    # voxel 내 point를 maxpooling 하여 voxel당 하나의 feature를 만들어 냄
-    #====================================================================================================#
-    reducemax_op_1 = [node for node in graph.nodes if node.op == "ReduceMax"][1]
-    reducemax_op_1.inputs[0] = reshape_3_out
-    reducemax_op_1.attrs['keepdims'] = [0]
-    reducemax_op_out = gs.Variable(name="reducemax_1_op_out", shape = [MAX_N_VOXELS, 64], dtype=np.float32)
-    reducemax_op_1.outputs[0] = reducemax_op_out
-    #====================================================================================================#
-
-    reshape_4 = gs.Node(name="reshape_4", op = "Reshape")
-    reshape_4.inputs.append(reducemax_op_out)
-    reshape_4_shape = gs.Constant(name="reshape_4_shape", values = np.array([1, MAX_N_VOXELS, 64], dtype=np.int64))
-    reshape_4.inputs.append(reshape_4_shape)
-    reshape_4_out = gs.Variable(name="voxels", shape = [1, MAX_N_VOXELS, 64], dtype=np.float32)
-    reshape_4.outputs.append(reshape_4_out)
-    graph.nodes.append(reshape_4)
 
     '''
         pointpillar_scatter.py에 해당하는 처리를 PillarScatterPlugin이 담당하는데 이것과 input & output을 엮어주기 위한 과정
@@ -242,7 +182,7 @@ def modify_onnx(onnx_simp,
 
     conv_op = [node for node in graph.nodes if node.op == "Conv"][0]
     dense_shape = conv_op.inputs[0].shape[-2:]
-    graph.replace_with_clip([reshape_4.outputs[0], voxel_coords, num_pillar], [conv_op.inputs[0]], dense_shape)
+    graph.replace_with_clip([reshape_2.outputs[0], voxel_coords, num_pillar], [conv_op.inputs[0]], dense_shape)
     #====================================================================================================#
 
     # 새롭게 만들어진 onnx에 대해 input과 output을 정의 함
@@ -275,7 +215,7 @@ def main(cfg: DictConfig):
     N_CHANNEL_POINT = 4 # (x, y, z I)
     N_CHANNEL_PILLAR = 10 # (x, y, z, I, cluster_x, cluster_y, cluster_z, center_x, center_y, center_z)
 
-    MAX_N_VOXELS = 10000
+    MAX_N_VOXELS = 5000
     MAX_N_POINTS = 200000
     MAX_POINTS_PER_VOXEL = 32
     VOXEL_SIZE = [0.16, 0.16, 4.0] 

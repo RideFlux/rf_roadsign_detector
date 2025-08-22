@@ -57,7 +57,7 @@ class PillarVFE(nn.Module):
         if self.with_distance:
             num_point_features += 1
 
-        self.num_filters = [64, 64]
+        self.num_filters = [64]
         num_filters = [num_point_features] + list(self.num_filters)
 
         pfn_layers = []

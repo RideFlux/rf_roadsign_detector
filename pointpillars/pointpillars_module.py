@@ -264,7 +264,7 @@ class RoadSignDetectorModule(LightningModule):
                 "lr_scheduler": {
                     "scheduler": scheduler,
                     "monitor": "total_loss",
-                    "interval": "epoch",
+                    "interval": "step",
                     "frequency": 1,
                 },
             }

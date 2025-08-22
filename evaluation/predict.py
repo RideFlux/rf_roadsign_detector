@@ -27,7 +27,7 @@ def inference_test_imgs_qtt(model, cfg, mode):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     batch_len = len(data_iter)
     
-    seq = track(range(batch_len), description="Processing batches") if mode == 3 else range(batch_len)
+    seq = track(range(batch_len-1), description="Processing batches") if mode == 3 else range(batch_len)
 
     for _ in seq:
         point_clouds, boxes, labels = data
