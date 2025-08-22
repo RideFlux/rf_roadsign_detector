@@ -2,6 +2,7 @@
 
 import os
 import pickle
+import sys
 from matplotlib import pyplot as plt
 import matplotlib
 import numpy as np
@@ -10,6 +11,8 @@ import pycuda.autoinit
 import tensorrt as trt
 from pypcd.pypcd import PointCloud
 from rich.progress import track
+
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from evaluation.utils import compute_distance, create_hyperlink
 
