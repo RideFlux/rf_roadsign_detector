@@ -39,16 +39,6 @@ Hydra version: 1.3.2
 
 > CUDA available이 False라면 모델 평가만 진행할 수 있습니다.
 
-### 2. CUDA 코드 빌드
-
-학습 및 평가 시에 사용하는 코드 중 일부분이 성능상의 이유로 `.cu(.cpp)` 파일로 작성되어 있습니다. 이를 파이썬 코드에서 사용할 수 있도록 빌드하는 과정이 필요합니다.
-
-```bash
-python setup.py build_ext --inplace
-```
-
-실행 후 `pointpillars/ops` 아래에 `voxel_op.~~~.so` 파일이 생성되었다면 성공입니다.
-
 ## 모델 학습하기
 
 > 모델 학습을 새로하지 않고, 보유한 체크포인트 파일이 있다면 바로 평가하기를 진행할 수 있습니다. `checkpoints/best.ckpt`에 가장 결과가 잘 나왔던 체크포인트를 저장해두었습니다.
@@ -172,14 +162,14 @@ python eval.py
 
 ```
 평가 모드를 선택해 주세요
-1. Bird's eye view(조감도)로 시각화하기
+1. 전방 view & Bird's eye view로 시각화하기
 2. 3D로 시각화하기
 3. 정량 평가만 진행하기
 
 1/2/3 중 하나 입력: 
 ```
 
-### 1. Bird's eye view(조감도)로 시각화하기
+### 1. 전방 view & Bird's eye view로 시각화하기
 
 `Inference Image (ctrl + click)`
 
@@ -187,7 +177,8 @@ python eval.py
 
 ![alt text](figures/test_infer.png)
 
-여기에서 빨간 사각형이 실제 박스의 위치이고, 노란 사각형이 추론을 통해 얻어낸 박스의 위치입니다. 엔터를 누를 때마다 다음 프레임으로 넘어가게 됩니다.
+노란색 색칠된 사각형은 차량의 위치와 바라보는 방향을 의미합니다.
+빨간 사각형이 실제 박스의 위치이고, 파란 사각형이 추론을 통해 얻어낸 박스의 위치입니다. 엔터를 누를 때마다 다음 프레임으로 넘어가게 됩니다.
 
 Ctrl+C 를 눌러 프로그램을 중단할 수 있습니다.
 
@@ -233,15 +224,6 @@ x축이 추론한 클래스이고, y축이 실제 클래스입니다.
 
 Score Histogram은 이 분포를 나타내주며, 양쪽에 치우쳐 있을수록, 두 봉우리의 경계가 명확할수록 좋은 모델입니다.
 
-## Troubleshooting
-
-```
-torch.OutOfMemoryError: CUDA out of memory. Tried to allocate 454.00 MiB. GPU 0 has a total capacity of 7.66 GiB of which 269.25 MiB is free. Process 2157851 has 5.39 GiB memory in use. Including non-PyTorch memory, this process has 1.13 GiB memory in use. Of the allocated memory 955.86 MiB is allocated by PyTorch, and 14.14 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://pytorch.org/docs/stable/notes/cuda.html#environment-variables)
-```
-
-학습 코드를 돌리는 중에 평가 코드를 돌리거나 등의 작업을 하면 GPU의 메모리가 부족하여 멈추게 됩니다. 하나를 중지시키면 정상적으로 작동합니다.
-
-
 ## ONNX, TensorRT 빌드
 
 ### 0. 환경 세팅
@@ -265,6 +247,7 @@ trtexec --onnx=final.onnx --saveEngine=final.trt
 ### 3. trt 파일 테스트
 
 ```bash
-python trt_inference.py --trt=final.trt --pcd=sample/111105_test_05234.pcd
+python tensorrt/trt_inference.py
+python tensorrt/trt_time_eval.py
 ```
 

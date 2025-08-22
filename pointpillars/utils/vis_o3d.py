@@ -94,60 +94,101 @@ def vis_core(plys):
     finally:
         vis.destroy_window()
 
-def draw_bev(points, gt_box, box=None, x_range=(-8, 0), y_range=(-48, 0)):
-    h, w = 960, 160
-    bev_img = np.zeros((160, 960, 3), dtype=np.uint8)  # BGR 이미지
+def draw_bev(points, gt_box, box=None, gt_label=None, pred_label=None, x_range=(-8, 0), y_range=(-48, 0), z_range=(-3, 1)):
 
-    def xy_to_pixel(x, y):
-        px = ((x - x_range[0]) / (x_range[1] - x_range[0]) * w).astype(np.int32)
-        py = h - ((y - y_range[0]) / (y_range[1] - y_range[0]) * h).astype(np.int32)
-        return px, py
+    w1, h1, w2, h2 = 640, 320, 1920, 320
+    bev_img = np.zeros((460, 2680, 3), dtype=np.uint8)  # BGR 이미지
+
+    def xy_to_pixel(x, y, z):
+        px1 = np.clip(680 - ((x - x_range[0]) / (x_range[1] - x_range[0]) * w1).astype(np.int32), 40, 680)
+        py1 = np.clip(420 - ((z - z_range[0]) / (z_range[1] - z_range[0]) * h1).astype(np.int32), 100, 420)
+        px2 = np.clip(2680 - ((y - y_range[0]) / (y_range[1] - y_range[0]) * w2).astype(np.int32), 720, 2640)
+        py2 = np.clip(420 - ((x - x_range[0]) / (x_range[1] - x_range[0]) * h2).astype(np.int32), 100, 420)
+        return px1, py1, px2, py2
 
     # 점 찍기
-    x, y, r = points[:, 0], points[:, 1], points[:, 3]
-    px, py = xy_to_pixel(x, y)
-    valid = (px >= 0) & (px < w) & (py >= 0) & (py < h)
-    bev_img[px[valid], py[valid]] = (180, 180, 180)  # 흰 점
+    x, y, z, r = points[:, 0], points[:, 1], points[:, 2], points[:, 3]
+    px1, py1, px2, py2 = xy_to_pixel(x, y, z)
+    valid = (x >= x_range[0]) & (x <= x_range[1]) \
+            & (y >= y_range[0]) & (y <= y_range[1]) \
+            & (z >= z_range[0]) & (z <= z_range[1])
     
-    # GT 박스 그리기
+    # Add bounds checking for pixel coordinates
+    valid1 = valid & (px1 >= 40) & (px1 < 40 + w1) & (py1 >= 100) & (py1 < bev_img.shape[0] - 40)
+    valid2 = valid & (px2 >= 40 + w1 + 40) & (px2 < bev_img.shape[1] - 40) & (py2 >= 100) & (py2 < bev_img.shape[0]-40)
+    r = np.minimum(r * 20, 255)
+    r_valid1 = r[valid1]
+    r_valid2 = r[valid2]
+    bev_img[py1[valid1], px1[valid1]] = np.stack([r_valid1, r_valid1, r_valid1], axis=-1)
+    bev_img[py2[valid2], px2[valid2]] = np.stack([r_valid2, r_valid2, r_valid2], axis=-1)
+
     if gt_box is not None:
-        cx, cy = gt_box[:2]
-        bl, bw = gt_box[3:5]
+        cx, cy, cz = gt_box[:3]
+        bl, bw, bh = gt_box[3:6]
 
-        # 네 꼭짓점 좌표
         half_w, half_l = bw / 2, bl / 2
-        corners = np.array([
-            [cx - half_l, cy - half_w],
-            [cx - half_l, cy + half_w],
-            [cx + half_l, cy + half_w],
-            [cx + half_l, cy - half_w]
+        corners1 = np.array([
+            [cx - half_l, cy - half_w, cz],
+            [cx + half_l, cy - half_w, cz],
+            [cx + half_l, cy - half_w, cz + bh],
+            [cx - half_l, cy - half_w, cz + bh]
         ])
-        pxs, pys = xy_to_pixel(corners[:, 0], corners[:, 1])
-        polygon = np.stack([pys, pxs], axis=1).astype(np.int32).reshape(-1, 1, 2)
+        corners2 = np.array([
+            [cx - half_l, cy - half_w, cz],
+            [cx - half_l, cy + half_w, cz],
+            [cx + half_l, cy + half_w, cz],
+            [cx + half_l, cy - half_w, cz],
+        ])
+        pxs1, pys1, _, _= xy_to_pixel(corners1[:, 0], corners1[:, 1], corners1[:, 2])
+        polygon1 = np.stack([pxs1, pys1], axis=1).astype(np.int32).reshape(-1, 1, 2)
+        _, _, pxs2, pys2= xy_to_pixel(corners2[:, 0], corners2[:, 1], corners2[:, 2])
+        polygon2 = np.stack([pxs2, pys2], axis=1).astype(np.int32).reshape(-1, 1, 2)
 
-        # 폴리라인 그리기 (GT는 빨간색으로)
         bev_img = np.ascontiguousarray(bev_img)
-        cv2.polylines(bev_img, [polygon], isClosed=True, color=(0, 0, 255), thickness=1)
-            
-    # 박스 그리기
+        cv2.polylines(bev_img, [polygon1], isClosed=True, color=(0, 0, 255), thickness=2)
+        cv2.polylines(bev_img, [polygon2], isClosed=True, color=(0, 0, 255), thickness=2)
+
     if box is not None:
-        cx, cy = box[:2]
-        bl, bw = box[3:5]
+        cx, cy, cz = box[:3]
+        bl, bw, bh = box[3:6]
 
-        # 네 꼭짓점 좌표
         half_w, half_l = bw / 2, bl / 2
-        corners = np.array([
-            [cx - half_l, cy - half_w],
-            [cx - half_l, cy + half_w],
-            [cx + half_l, cy + half_w],
-            [cx + half_l, cy - half_w]
+        corners1 = np.array([
+            [cx - half_l, cy - half_w, cz],
+            [cx + half_l, cy - half_w, cz],
+            [cx + half_l, cy - half_w, cz + bh],
+            [cx - half_l, cy - half_w, cz + bh]
         ])
-        pxs, pys = xy_to_pixel(corners[:, 0], corners[:, 1])
-        polygon = np.stack([pys, pxs], axis=1).astype(np.int32).reshape(-1, 1, 2)
+        corners2 = np.array([
+            [cx - half_l, cy - half_w, cz],
+            [cx - half_l, cy + half_w, cz],
+            [cx + half_l, cy + half_w, cz],
+            [cx + half_l, cy - half_w, cz],
+        ])
+        pxs1, pys1, _, _= xy_to_pixel(corners1[:, 0], corners1[:, 1], corners1[:, 2])
+        polygon1 = np.stack([pxs1, pys1], axis=1).astype(np.int32).reshape(-1, 1, 2)
+        _, _, pxs2, pys2= xy_to_pixel(corners2[:, 0], corners2[:, 1], corners2[:, 2])
+        polygon2 = np.stack([pxs2, pys2], axis=1).astype(np.int32).reshape(-1, 1, 2)
 
-        # 폴리라인 그리기
         bev_img = np.ascontiguousarray(bev_img)
-        cv2.polylines(bev_img, [polygon], isClosed=True, color=(0, 255, 255), thickness=1)
+        cv2.polylines(bev_img, [polygon1], isClosed=True, color=(255, 255, 0), thickness=2)
+        cv2.polylines(bev_img, [polygon2], isClosed=True, color=(255, 255, 0), thickness=2)
+
+    cv2.rectangle(bev_img, (40, 100), (680, 420), (0, 255, 255), 1)
+    cv2.rectangle(bev_img, (720, 100), (2640, 420), (0, 255, 255), 1)
+
+    cv2.rectangle(bev_img, (20, 400), (60, 440), (0, 255, 255), -1)
+    cv2.rectangle(bev_img, (700, 80), (740, 120), (0, 255, 255), -1)
+    
+    cv2.arrowedLine(bev_img, (40, 436), (40, 404), (0, 0, 0), 2, tipLength=0.3)
+    cv2.arrowedLine(bev_img, (704, 100), (736, 100), (0, 0, 0), 2, tipLength=0.3)
+    
+    font = cv2.FONT_HERSHEY_COMPLEX
+    fontScale = 0.8
+    fontColor = (255,255,255)
+    thickness = 1
+    text_width, text_height = cv2.getTextSize(f'GT Class: {gt_label+1}, Pred Class: {pred_label+1}', font, fontScale, thickness)[0]
+    cv2.putText(bev_img, f'GT Class: {gt_label+1}, Pred Class: {pred_label+1}', (1320-text_width//2, 50+text_height), font, fontScale, fontColor, thickness, cv2.LINE_AA)
 
     return bev_img
 

@@ -68,7 +68,9 @@ def inference_test_imgs_qtt(model, cfg, mode):
             if mode == 1:
                 bev = draw_bev(point_cloud,
                                gt_bbox,
-                               pred_bbox)
+                               pred_bbox,
+                               gt_label,
+                               pred_label,)
                 cv2.imwrite(cfg.inference_img_path, bev)
                 input()
 
