@@ -224,6 +224,25 @@ x축이 추론한 클래스이고, y축이 실제 클래스입니다.
 
 Score Histogram은 이 분포를 나타내주며, 양쪽에 치우쳐 있을수록, 두 봉우리의 경계가 명확할수록 좋은 모델입니다.
 
+## 4. 모델 입출력
+
+| 분류 | 이름 | 타입 | 설명 |
+|-----|-----|------|----|
+| Input | `batched_pts` | list[tensor] | pcd 데이터, dynamic 가능, 텐서 shape는 [배치 내 모든 프레임의 point 수 합, 4] |
+| Output | `final_boxes` | float32[1, 6] |  최종 박스의 $(x,y,z,w,l,h)$ |
+| Output | `final_labels` | int32[1] | 최종 박스의 클래스, 0 based |
+| Output | `final_scores` | float32[1] | 최종 박스의 confidence score로, 0.5 미만이면 표지판이 없는 것으로 간주 |
+
+> Output은 python dictionary 형태로, 아래와 같이 반환된다. 가장 바깥쪽 `list`는 배치 내 프레임 별 결과를 갖고있다.
+
+```py
+list[{
+    'final_bboxes': (1, 6),
+    'final_labels': (1, ),
+    'final_scores': (1, )
+}]
+```
+
 ## ONNX, TensorRT 빌드
 
 ### 0. 환경 세팅
@@ -250,4 +269,14 @@ trtexec --onnx=final.onnx --saveEngine=final.trt
 python tensorrt/trt_inference.py
 python tensorrt/trt_time_eval.py
 ```
+
+### 4. trt 입출력
+
+| 분류 | 이름 | 타입 | 설명 |
+|-----|-----|------|----|
+| Input | `points` | float32[1, 200000, 4] | pcd 데이터, 200000은 static이지만, 수정 가능. 이 크기에 맞게 입력 데이터를 slice 또는 zero padding 해줘야 함 |
+| Input | `num_points` | int32[1] | `points`에서 어디까지가 유효한 데이터인지 나타냅니다. |
+| Output | `final_boxes` | float32[1, 6] |  최종 박스의 $(x,y,z,w,l,h)$ |
+| Output | `final_labels` | int32[1] | 최종 박스의 클래스, 0 based |
+| Output | `final_scores` | float32[1] | 최종 박스의 confidence score로, 0.5 미만이면 표지판이 없는 것으로 간주 |
 
