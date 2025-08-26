@@ -87,11 +87,11 @@ python collect_pcd_data.py
 
 실행 후 지정한 폴더 아래에 
 
-- train_set.pkl
-- val_set.pkl
-- test1_set.pkl
-- test2_set.pkl
-- test3_set.pkl
+- `train_set.pkl` : 표지판 데이터 전체의 80% + 표지판 데이터 전후반전 10% + FP 데이터 10%의 80% 
+- `val_set.pkl` : 표지판 데이터 전체의 20% + 표지판 데이터 전후반전 10% + FP 데이터 10%의 20%
+- `test1_set.pkl` : val_set.pkl과 동일
+- `test2_set.pkl` : 표지판 데이터 전체의 20% + 표지판 데이터 전후반전 20% + FP 데이터 10%의 20%
+- `test3_set.pkl` : 표지판 데이터 전체의 20% + 표지판 데이터 전후반전 10% + 모든 FP 데이터
 
 와 같은 파일들이 생겼다면 성공입니다.
 

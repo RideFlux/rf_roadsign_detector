@@ -21,13 +21,13 @@ def inference_test_imgs_qtt(model, cfg, mode):
     test_dataloader = dataset.test_dataloader()
     data_iter = iter(test_dataloader)
     data = next(data_iter)
-    if mode == 1:
+    if mode in [1, 2, 3]:
         create_hyperlink(cfg.inference_img_path, 'Inference Image')
         
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     batch_len = len(data_iter)
     
-    seq = track(range(batch_len-1), description="Processing batches") if mode == 3 else range(batch_len)
+    seq = track(range(batch_len-1), description="Processing batches") if mode == 5 else range(batch_len)
 
     for _ in seq:
         point_clouds, boxes, labels = data
@@ -65,16 +65,17 @@ def inference_test_imgs_qtt(model, cfg, mode):
                     pred_label = num_classes
                 result_list.append((pred_label, num_classes, 1000.0))
             
-            if mode == 1:
+            if mode in [1, 2, 3]:
                 bev = draw_bev(point_cloud,
                                gt_bbox,
                                pred_bbox,
                                gt_label,
-                               pred_label,)
+                               pred_label,
+                               mode=mode)
                 cv2.imwrite(cfg.inference_img_path, bev)
                 input()
 
-            if mode == 2:
+            if mode == 4:
                 vis_pc(point_cloud,
                                pred_bbox,
                                pred_label)

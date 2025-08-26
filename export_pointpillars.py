@@ -56,7 +56,6 @@ def generate_default_onnx(detector,
     os.remove(tmp_onnx_file_name)
 
     onnx_simp, check = simplify(onnx_raw)
-    onnx.save(onnx_simp, "simplified.onnx")
     assert check, "Simplified ONNX model could not be validated"
     
     return onnx_simp

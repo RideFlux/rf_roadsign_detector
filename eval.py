@@ -16,13 +16,15 @@ def main(cfg: DictConfig):
     eval_mode = cfg.eval_mode
     if eval_mode == 0:
         print("\n평가 모드를 선택해 주세요")
-        print("1. 전방 view & Bird's eye view로 시각화하기")
-        print("2. 3D로 시각화하기")
-        print("3. 정량 평가만 진행하기\n")
-        eval_mode = int(input("1/2/3 중 하나 입력: "))
+        print("1. 전방 view로 시각화하기")
+        print("2. Bird's eye view로 시각화하기")
+        print("3. 전방 + BEV로 시각화하기")
+        print("4. 3D로 시각화하기")
+        print("5. 정량 평가만 진행하기\n")
+        eval_mode = int(input("1~5 중 하나 입력: "))
     print("")
     
-    if eval_mode in [1, 2, 3]:
+    if eval_mode in [1, 2, 3, 4, 5]:
         # Initialize model
         model = hydra.utils.instantiate(
             cfg.model.roadsign_detector.module,
