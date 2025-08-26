@@ -3,7 +3,7 @@ defaults:
 
 strategy:
   _target_: lightning.pytorch.strategies.DDPStrategy
-  # find_unused_parameters: True
+  # find_unused_parameters: True - 사용하지 않는 파라미터가 없으므로 설정 X
 
 accelerator: gpu
 devices: 1

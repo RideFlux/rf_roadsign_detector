@@ -228,7 +228,7 @@ Score Histogram은 이 분포를 나타내주며, 양쪽에 치우쳐 있을수�
 
 | 분류 | 이름 | 타입 | 설명 |
 |-----|-----|------|----|
-| Input | `batched_pts` | list[tensor] | pcd 데이터, dynamic 가능, 텐서 shape는 [배치 내 모든 프레임의 point 수 합, 4] |
+| Input | `batched_pts` | list[tensor] | pcd 데이터, dynamic 가능, 텐서 shape는 (각 프레임의 point 수, 4) |
 | Output | `final_boxes` | float32[1, 6] |  최종 박스의 $(x,y,z,w,l,h)$ |
 | Output | `final_labels` | int32[1] | 최종 박스의 클래스, 0 based |
 | Output | `final_scores` | float32[1] | 최종 박스의 confidence score로, 0.5 미만이면 표지판이 없는 것으로 간주 |

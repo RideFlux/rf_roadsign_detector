@@ -59,7 +59,7 @@ class RoadSignDataModule(LightningDataModule):
     def test_dataloader(self) -> DataLoader[Any]:
         if self.test_dataset is None:
             dataset = instantiate(self.dataset_class_dict)
-            dataset.setDataset(self.data_processor.get_data_list('test'))
+            dataset.setDataset(self.data_processor.get_data_list('test1'))
             self.test_dataset = dataset
         print('test dataset size :', len(self.test_dataset))
 
@@ -69,18 +69,4 @@ class RoadSignDataModule(LightningDataModule):
             num_workers=self.num_workers,
             shuffle=False,
             collate_fn = self.test_dataset.collate
-        )
-    
-    def eval_dataloader(self) -> DataLoader[Any]:
-        """평가 시에 raw_img를 포함하는 데이터 로더"""
-        dataset = instantiate(self.dataset_class_dict)
-        dataset.setDataset(self.data_processor.get_data_list('test1'))
-        print('eval dataset size :', len(dataset))
-
-        return DataLoader(
-            dataset=dataset,
-            batch_size=self.batch_size,
-            num_workers=self.num_workers,
-            shuffle=False,
-            collate_fn = dataset.collate
         )

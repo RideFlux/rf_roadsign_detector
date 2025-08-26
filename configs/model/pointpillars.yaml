@@ -1,9 +1,10 @@
 roadsign_detector:
   num_classes: ${data.datasets.num_classes}
   voxel_size: [0.16, 0.16, 4.0]                # x, y, z size
-  point_cloud_range: [-8, -48, -3, 0, 0, 1]    # x, y, z min, x, y, z max
+  point_cloud_range: [-8.0, -48.0, -3.0, 0.0, 0.0, 1.0]    # x, y, z min, x, y, z max
   max_num_points: 32                           # max number of points in a voxel
   max_voxels: [5000, 5000]
+  max_points: 200000
 
   module:
     _target_: pointpillars.pointpillars_module.RoadSignDetectorModule
@@ -26,15 +27,19 @@ roadsign_detector:
       num_point_features: 4
       voxel_size: ${model.roadsign_detector.voxel_size}
       point_cloud_range: ${model.roadsign_detector.point_cloud_range}
+      out_channels: 64
     
     pillar_scatter:
       _target_: pointpillars.model.pillar_scatter.PointPillarScatter
+      in_channels: ${model.roadsign_detector.module.pillar_vfe.out_channels}
+      voxel_size: ${model.roadsign_detector.voxel_size}
+      point_cloud_range: ${model.roadsign_detector.point_cloud_range}
       _recursive_: false
 
     backbone:
       _target_: pointpillars.model.backbone.Backbone
       _recursive_: False
-      in_channel: 64
+      in_channel: ${model.roadsign_detector.module.pillar_vfe.out_channels}
       out_channels: [32, 64, 128]
       layer_nums: [3, 5, 5]
     
@@ -48,7 +53,7 @@ roadsign_detector:
     head:
       _target_: pointpillars.model.head.Head
       _recursive_: False
-      in_channel: 192
+      in_channel: ${sum:${..neck.out_channels}}
       n_anchors: 1
       n_classes: ${model.roadsign_detector.num_classes}
     

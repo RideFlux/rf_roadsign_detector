@@ -1,5 +1,6 @@
 import rootutils
 import torch
+
 torch.set_float32_matmul_precision('high')
 
 rootutils.setup_root(__file__, indicator=".project-root", pythonpath=True)
@@ -9,15 +10,18 @@ from typing import List
 import hydra
 from lightning import Callback, LightningDataModule, LightningModule, Trainer
 from lightning.pytorch.loggers import Logger
-from omegaconf import DictConfig
+from omegaconf import DictConfig, OmegaConf
 from lightning.pytorch.loggers import TensorBoardLogger
 
 from utils import (
     RankedLogger,
     instantiate_callbacks,
+    SumResolver
 )
 
 log = RankedLogger(__name__, rank_zero_only=True)
+
+OmegaConf.register_new_resolver("sum", SumResolver, replace=True)
 
 @hydra.main(version_base=None, config_path="configs", config_name="train.yaml")
 def main(cfg: DictConfig):

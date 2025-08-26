@@ -47,7 +47,7 @@ class PFNLayer(nn.Module):
 
 
 class PillarVFE(nn.Module):
-    def __init__(self, num_point_features, voxel_size, point_cloud_range):
+    def __init__(self, num_point_features, voxel_size, point_cloud_range, out_channels):
         super().__init__()
 
         self.use_norm = True
@@ -57,7 +57,7 @@ class PillarVFE(nn.Module):
         if self.with_distance:
             num_point_features += 1
 
-        self.num_filters = [64]
+        self.num_filters = [ out_channels ]
         num_filters = [num_point_features] + list(self.num_filters)
 
         pfn_layers = []

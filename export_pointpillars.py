@@ -1,14 +1,17 @@
 import hydra
-from omegaconf import DictConfig
+from omegaconf import DictConfig, OmegaConf
 from onnxsim import simplify
 import torch
 import torch.nn as nn
-import argparse
 import os
 import onnx
 import onnx_graphsurgeon as gs
 import numpy as np
 
+from utils.sum_resolver import SumResolver
+
+
+OmegaConf.register_new_resolver("sum", SumResolver, replace=True)
 
 def generate_default_onnx(detector, 
                           BATCH_SIZE, MAX_N_VOXELS, MAX_POINTS_PER_VOXEL, N_CHANNEL_POINT,
@@ -53,6 +56,7 @@ def generate_default_onnx(detector,
     os.remove(tmp_onnx_file_name)
 
     onnx_simp, check = simplify(onnx_raw)
+    onnx.save(onnx_simp, "simplified.onnx")
     assert check, "Simplified ONNX model could not be validated"
     
     return onnx_simp
@@ -215,11 +219,11 @@ def main(cfg: DictConfig):
     N_CHANNEL_POINT = 4 # (x, y, z I)
     N_CHANNEL_PILLAR = 10 # (x, y, z, I, cluster_x, cluster_y, cluster_z, center_x, center_y, center_z)
 
-    MAX_N_VOXELS = 5000
-    MAX_N_POINTS = 200000
-    MAX_POINTS_PER_VOXEL = 32
-    VOXEL_SIZE = [0.16, 0.16, 4.0] 
-    POINT_CLOUD_RANGE = [-8.0, -48.0, -3.0, 0.0, 0.0, 1.0] # .0 생략하면 절대 안됨
+    MAX_N_VOXELS = cfg.model.roadsign_detector.max_voxels[0]
+    MAX_N_POINTS = cfg.model.roadsign_detector.max_points
+    MAX_POINTS_PER_VOXEL = cfg.model.roadsign_detector.max_num_points
+    VOXEL_SIZE = cfg.model.roadsign_detector.voxel_size
+    POINT_CLOUD_RANGE = cfg.model.roadsign_detector.point_cloud_range
     #====================================================================================================#
     
     onnx_simp = generate_default_onnx(detector, BATCH_SIZE, MAX_N_VOXELS, 

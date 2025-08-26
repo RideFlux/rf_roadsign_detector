@@ -10,7 +10,6 @@ class DataProcessor:
         self.pickle_files = pickle_files  # {'train': 'path/to/train.pkl', 'val': 'path/to/val.pkl', ...}
         self.stride = stride
         self.valid_split_names = pickle_files.keys()
-        self.num_classes = 1  # 고정값으로 설정
         pass
 
     def get_data_list(self, split_name: str):
@@ -39,18 +38,12 @@ class DataProcessor:
         label_data = data_item['label']
         reversed_flag = data_item['reversed']
         
-        # Skip problematic files
-        if 'C8_construct(e)' in pcd_path:
-            return None
-            
         # Read PCD file
         img = read_pcd(pcd_path)
         
         # Initialize empty arrays for the case when no labels exist
         gt_bboxes = np.zeros([0, 6], dtype=np.float32)
         gt_cls = np.zeros([0], dtype=np.int32)
-        
-        
         
         # Process label if exists
         if label_data is not None:
@@ -61,15 +54,11 @@ class DataProcessor:
                 # Convert class (1-based to 0-based)
                 gt_cls = np.array([class_id - 1], dtype=np.int32)
                 
-                # Convert [8][3] bbox to [x, y, z, w, l, h] format
-                # bbox_coords는 8개 꼭짓점의 좌표 [8][3]
-                # 기존 로직과 동일하게 변환
                 coords_flat = bbox_coords.flatten()  # [24] 형태로 변환
                 
-                # 기존 로직 적용 (label[:, 1:25]를 coords_flat[0:24]로 대체)
-                dim = np.array([coords_flat[3] - coords_flat[0],    # x_max - x_min
-                               coords_flat[7] - coords_flat[4],     # y_max - y_min  
-                               coords_flat[14] - coords_flat[11]], dtype=np.float32)   # z_max - z_min
+                dim = np.array([coords_flat[3] - coords_flat[0],                        # x_max - x_min
+                               coords_flat[7] - coords_flat[4],                         # y_max - y_min  
+                               coords_flat[14] - coords_flat[11]], dtype=np.float32)    # z_max - z_min
                 
                 loc = np.array([coords_flat[0] + (coords_flat[3] - coords_flat[0])/2,   # x_center
                                coords_flat[4] + (coords_flat[7] - coords_flat[4])/2,    # y_center
@@ -81,7 +70,6 @@ class DataProcessor:
                 print(f"Error processing label data {pcd_path}: {e}")
                 return (img, gt_bboxes, gt_cls)
         
-        # Check if we need to rotate data based on reversed flag
         if len(gt_bboxes) > 0 and gt_bboxes[0][0] > 0:
             # Rotate point cloud: (x, y) -> (y, -x)
             img_rotated = img.copy()
@@ -98,7 +86,8 @@ class DataProcessor:
                 gt_bboxes_rotated[:, 3] = gt_bboxes[:, 4]   # new w = old l
                 gt_bboxes_rotated[:, 4] = gt_bboxes[:, 3]   # new l = old w
                 gt_bboxes = gt_bboxes_rotated
-                
+        
+        # Data augmentation: 전후 반전용
         if reversed_flag:
             img[:, 1] = -img[:, 1]
             

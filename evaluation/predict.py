@@ -18,7 +18,7 @@ def inference_test_imgs_qtt(model, cfg, mode):
     num_classes = cfg.data.datasets.num_classes
     
     dataset = hydra.utils.instantiate(cfg.data.datamodule)
-    test_dataloader = dataset.eval_dataloader()
+    test_dataloader = dataset.test_dataloader()
     data_iter = iter(test_dataloader)
     data = next(data_iter)
     if mode == 1:

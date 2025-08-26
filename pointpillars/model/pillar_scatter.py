@@ -3,11 +3,16 @@ import torch.nn as nn
 
 
 class PointPillarScatter(nn.Module):
-    def __init__(self):
+    def __init__(self, in_channels, voxel_size=None, point_cloud_range=None):
         super().__init__()
 
-        self.num_bev_features = 64
-        self.nx, self.ny, self.nz = 50, 300, 1
+        self.num_bev_features = in_channels
+        self.nx, self.ny, self.nz = point_cloud_range[3] - point_cloud_range[0], \
+                                     point_cloud_range[4] - point_cloud_range[1], \
+                                     point_cloud_range[5] - point_cloud_range[2]
+        self.nx = int(self.nx / voxel_size[0])
+        self.ny = int(self.ny / voxel_size[1])
+        self.nz = int(self.nz / voxel_size[2])
         assert self.nz == 1
 
     def forward(self, batch_dict):

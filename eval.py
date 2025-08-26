@@ -1,7 +1,11 @@
 import torch
 import hydra
-from omegaconf import DictConfig
+from omegaconf import DictConfig, OmegaConf
 from evaluation.predict import  inference_test_imgs_qtt
+from utils.sum_resolver import SumResolver
+
+
+OmegaConf.register_new_resolver("sum", SumResolver, replace=True)
 
 @hydra.main(version_base=None, config_path="configs", config_name="eval.yaml")
 def main(cfg: DictConfig):

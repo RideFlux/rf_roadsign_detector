@@ -80,7 +80,7 @@ def _read_data_from_pickle(data_item):
     return input, gt_bboxes, gt_cls, reversed_flag
 
 def main(trt_path: str):
-    with open('/home/yongwooklee/LIDAR_DATA/test1_set.pkl', 'rb') as f:
+    with open('/home/rideflux/LIDAR_DATA/test1_set.pkl', 'rb') as f:
         dataset = pickle.load(f)
     
     
@@ -289,7 +289,6 @@ if __name__ == "__main__":
     import pathlib
     
     parser = argparse.ArgumentParser(description="TensorRT Inference for Point Cloud Data")
-    # parser.add_argument("--pcd", type=pathlib.Path, required=True, help="Path to the PCD file")
     parser.add_argument("--trt", type=pathlib.Path, default="./final.trt", help="Path to the TensorRT engine file")
     args = parser.parse_args()
 
