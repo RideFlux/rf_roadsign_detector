@@ -1,12 +1,3 @@
-<style>
-    code {
-        padding-y: 0;
-        color: white;
-        background-color: #444444
-    }
-</style>
-
-
 # PointPillars
 
 ## 1. PillarLayer
@@ -18,18 +9,19 @@
 본 레이어는 onnx 변환시 TensorRT의 내장 플러그인 `VoxelGeneratorPlugin`으로 대체됩니다.
 
 ```py
-from pointpillars.ops.voxel_module import Voxelization
+from pointpillars.model.voxel_generator import VoxelGeneratorWrapper
+
 class PillarLayer(nn.Module):
     def __init__(self, voxel_size, point_cloud_range, max_num_points, max_voxels):
         super().__init__()
         
-        self.voxel_layer = Voxelization(voxel_size=voxel_size,
-                                        point_cloud_range=point_cloud_range,
-                                        max_num_points=max_num_points,
-                                        max_voxels=max_voxels)
+        self.voxel_layer = VoxelGeneratorWrapper(
+            vsize_xyz=voxel_size,
+            coors_range_xyz=point_cloud_range,
+            max_num_points_per_voxel=max_num_points,
+            max_num_voxels=max_voxels,
+        )
 ```
-
-`Voxelization`은 [voxel_module.py](../ops/voxel_module.py)에 정의되어있는 클래스로, cuda 코드로 정의된 `hard_voxelize`라는 함수를 호출하는 역할을 합니다.
 
 ### 1.2. 입력
 
