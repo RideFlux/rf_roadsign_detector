@@ -98,13 +98,17 @@ def draw_bev(points, gt_box, box=None, gt_label=None, pred_label=None, mode=3, x
 
     # FV, BEV 크기
     w1, h1, w2, h2 = 640, 320, 1920, 320
-    bev_img = np.zeros((460, 40 + (w1 + 40) * (mode & 0b01 != 0) + (w2 + 40) * (mode & 0b10 != 0), 3), dtype=np.uint8)  # BGR 이미지
+    
+    option_1 = mode & 0b01 != 0
+    option_2 = mode & 0b10 != 0
+    
+    bev_img = np.zeros((460, 40 + (w1 + 40) * option_1 + (w2 + 40) * option_2, 3), dtype=np.uint8)  # BGR 이미지
 
     def xy_to_pixel(x, y, z):
         # px1, py1: FV 상에서의 위치, px2, py2: BEV 상에서의 위치
         px1 = np.clip(w1 - ((x - x_range[0]) / (x_range[1] - x_range[0]) * w1).astype(np.int32), 0, w1) + 40
         py1 = np.clip(h1 - ((z - z_range[0]) / (z_range[1] - z_range[0]) * h1).astype(np.int32), 0, h1) + 100
-        px2 = np.clip(w2 - ((y - y_range[0]) / (y_range[1] - y_range[0]) * w2).astype(np.int32), 0, w2) + 40 + (w1 + 40) * (mode & 0b01 != 0)
+        px2 = np.clip(w2 - ((y - y_range[0]) / (y_range[1] - y_range[0]) * w2).astype(np.int32), 0, w2) + 40 + (w1 + 40) * option_1
         py2 = np.clip(h2 - ((x - x_range[0]) / (x_range[1] - x_range[0]) * h2).astype(np.int32), 0, h2) + 100
         return px1, py1, px2, py2
 
@@ -116,43 +120,18 @@ def draw_bev(points, gt_box, box=None, gt_label=None, pred_label=None, mode=3, x
             & (z >= z_range[0]) & (z <= z_range[1])
     
     # Add bounds checking for pixel coordinates
-    valid1 = valid & (px1 >= 40) & (px1 < 40 + w1) & (py1 >= 100) & (py1 < bev_img.shape[0] - 40) & (mode & 0b01 != 0)
-    valid2 = valid & (px2 >= 40 + (w1 + 40) * (mode & 0b01 != 0)) & (px2 < bev_img.shape[1] - 40) & (py2 >= 100) & (py2 < bev_img.shape[0]-40) & (mode & 0b10 != 0)
+    valid1 = valid & (px1 >= 40) & (px1 < 40 + w1) & (py1 >= 100) & (py1 < bev_img.shape[0] - 40) & option_1 \
+            & (y <= gt_box[1] + gt_box[4]/2 + 0.5) & (y >= gt_box[1] - gt_box[4]/2 - 0.5)
+    valid2 = valid & (px2 >= 40 + (w1 + 40) * option_1) & (px2 < bev_img.shape[1] - 40) & (py2 >= 100) & (py2 < bev_img.shape[0]-40) & option_2
     r = np.minimum(r * 20, 255)
     r_valid1 = r[valid1]
     r_valid2 = r[valid2]
     bev_img[py1[valid1], px1[valid1]] = np.stack([r_valid1, r_valid1, r_valid1], axis=-1)
     bev_img[py2[valid2], px2[valid2]] = np.stack([r_valid2, r_valid2, r_valid2], axis=-1)
 
-    if gt_box is not None:
-        cx, cy, cz = gt_box[:3]
-        bl, bw, bh = gt_box[3:6]
-
-        half_w, half_l = bw / 2, bl / 2
-        corners1 = np.array([
-            [cx - half_l, cy - half_w, cz],
-            [cx + half_l, cy - half_w, cz],
-            [cx + half_l, cy - half_w, cz + bh],
-            [cx - half_l, cy - half_w, cz + bh]
-        ])
-        corners2 = np.array([
-            [cx - half_l, cy - half_w, cz],
-            [cx - half_l, cy + half_w, cz],
-            [cx + half_l, cy + half_w, cz],
-            [cx + half_l, cy - half_w, cz],
-        ])
-        pxs1, pys1, _, _= xy_to_pixel(corners1[:, 0], corners1[:, 1], corners1[:, 2])
-        polygon1 = np.stack([pxs1, pys1], axis=1).astype(np.int32).reshape(-1, 1, 2)
-        _, _, pxs2, pys2= xy_to_pixel(corners2[:, 0], corners2[:, 1], corners2[:, 2])
-        polygon2 = np.stack([pxs2, pys2], axis=1).astype(np.int32).reshape(-1, 1, 2)
-
-        bev_img = np.ascontiguousarray(bev_img)
-        if mode & 0b01 != 0:
-            cv2.polylines(bev_img, [polygon1], isClosed=True, color=(0, 0, 255), thickness=2)
-        if mode & 0b10 != 0:
-            cv2.polylines(bev_img, [polygon2], isClosed=True, color=(0, 0, 255), thickness=2)
-
-    if box is not None:
+    for box, color in [(gt_box, (0, 0, 255)), (box, (255, 255, 0))]:
+        if box is None:
+            continue
         cx, cy, cz = box[:3]
         bl, bw, bh = box[3:6]
 
@@ -175,37 +154,33 @@ def draw_bev(points, gt_box, box=None, gt_label=None, pred_label=None, mode=3, x
         polygon2 = np.stack([pxs2, pys2], axis=1).astype(np.int32).reshape(-1, 1, 2)
 
         bev_img = np.ascontiguousarray(bev_img)
-        if mode & 0b01 != 0:
-            cv2.polylines(bev_img, [polygon1], isClosed=True, color=(255, 255, 0), thickness=2)
-        if mode & 0b10 != 0:
-            cv2.polylines(bev_img, [polygon2], isClosed=True, color=(255, 255, 0), thickness=2)
+        if option_1:
+            cv2.polylines(bev_img, [polygon1], isClosed=True, color=color, thickness=2)
+        if option_2:
+            cv2.polylines(bev_img, [polygon2], isClosed=True, color=color, thickness=2)
 
-    if mode & 0b01 != 0:
-        # cv2.rectangle(bev_img, (40, 100), (680, 420), (0, 255, 255), 1)
-        # cv2.rectangle(bev_img, (20, 400), (60, 440), (0, 255, 255), -1)
-        # cv2.arrowedLine(bev_img, (40, 436), (40, 404), (0, 0, 0), 2, tipLength=0.3)
-        
+    if option_1:
         cv2.rectangle(bev_img, (40, 100), (40 + w1, 100 + h1), (0, 255, 255), 1)
         cv2.rectangle(bev_img, (20, 80 + h1), (60, 120 + h1), (0, 255, 255), -1)
         cv2.arrowedLine(bev_img, (40, 116 + h1), (40, 84 + h1), (0, 0, 0), 2, tipLength=0.3)
         
-    if mode & 0b10 != 0:
-        cv2.rectangle(bev_img, (40 + (w1 + 40) * (mode & 0b01 != 0), 100), \
-                                (40 + (w1 + 40) * (mode & 0b01 != 0) + w2, 100 + h2), \
+    if option_2:
+        cv2.rectangle(bev_img, (40 + (w1 + 40) * option_1, 100), \
+                                (40 + (w1 + 40) * option_1 + w2, 100 + h2), \
                                 (0, 255, 255), 1)
-        cv2.rectangle(bev_img, (20 + (w1 + 40) * (mode & 0b01 != 0), 80), \
-                                (60 + (w1 + 40) * (mode & 0b01 != 0), 120), \
+        cv2.rectangle(bev_img, (20 + (w1 + 40) * option_1, 80), \
+                                (60 + (w1 + 40) * option_1, 120), \
                                 (0, 255, 255), -1)
-        cv2.arrowedLine(bev_img, (24 + (w1 + 40) * (mode & 0b01 != 0), 100), (56 + (w1 + 40) * (mode & 0b01 != 0), 100), (0, 0, 0), 2, tipLength=0.3)
+        cv2.arrowedLine(bev_img, (24 + (w1 + 40) * option_1, 100), (56 + (w1 + 40) * option_1, 100), (0, 0, 0), 2, tipLength=0.3)
     
     
     font = cv2.FONT_HERSHEY_COMPLEX
     fontScale = 0.8
     fontColor = (255,255,255)
     thickness = 1
-    text_width, text_height = cv2.getTextSize(f'GT Class: {gt_label+1}, Pred Class: {pred_label+1}', font, fontScale, thickness)[0]
-    mid = (40 + (w1 + 40) * (mode & 0b01 != 0) + (w2 + 40) * (mode & 0b10 != 0)) // 2
-    cv2.putText(bev_img, f'GT Class: {gt_label+1}, Pred Class: {pred_label+1}', (mid-text_width//2, 50+text_height), font, fontScale, fontColor, thickness, cv2.LINE_AA)
+    text_width, text_height = cv2.getTextSize(f'True Class: {gt_label+1}, Pred Class: {pred_label+1}', font, fontScale, thickness)[0]
+    mid = (40 + (w1 + 40) * option_1 + (w2 + 40) * option_2) // 2
+    cv2.putText(bev_img, f'True Class: {gt_label+1}, Pred Class: {pred_label+1}', (mid-text_width//2, 50+text_height), font, fontScale, fontColor, thickness, cv2.LINE_AA)
 
     return bev_img
 
