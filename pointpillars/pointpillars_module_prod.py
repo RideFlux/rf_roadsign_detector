@@ -30,23 +30,10 @@ class RoadSignDetectorModuleProd(nn.Module):
         loss_module: torch.nn.Module = None,
         optimizer: torch.optim.Optimizer = None,
         scheduler: torch.optim.lr_scheduler = None,
-        output_pool_nms : bool = True,
-        nms_pre: int = 256,
-        nms_thr: float = 0.01,
-        score_thr: float = 0.1,
-        max_num: int = 500,
-        nclasses: int = None,
-        assigners = None
     ) -> None:
         super().__init__()
         # self.save_hyperparameters(logger=False)
         self.num_classes = num_classes
-        self.nclasses = nclasses if nclasses is not None else num_classes
-        self.nms_pre = nms_pre
-        self.nms_thr = nms_thr
-        self.score_thr = score_thr
-        self.max_num = max_num
-        self.assigners = assigners
         
         self.pillar_layer = instantiate(pillar_layer)
         self.pillar_vfe = instantiate(pillar_vfe)
@@ -83,7 +70,7 @@ class RoadSignDetectorModuleProd(nn.Module):
                 batched_anchors=batched_anchors, 
                 batched_gt_bboxes=batched_gt_bboxes, 
                 batched_gt_labels=batched_gt_labels,
-                nclasses=self.nclasses
+                nclasses=self.num_classes
             )
             
             return bbox_cls_pred, bbox_pred, anchor_target_dict
@@ -114,7 +101,7 @@ class RoadSignDetectorModuleProd(nn.Module):
             scores: (k, )
         '''
         # 1. reshape inputs
-        bbox_cls_pred = bbox_cls_pred.permute(1, 2, 0).reshape(-1, self.nclasses)  # [H*W*A, C]
+        bbox_cls_pred = bbox_cls_pred.permute(1, 2, 0).reshape(-1, self.num_classes)  # [H*W*A, C]
         bbox_pred = bbox_pred.permute(1, 2, 0).reshape(-1, 6)  # [H*W*A, 6]
         anchors = anchors.reshape(-1, 6)
 
@@ -137,9 +124,9 @@ class RoadSignDetectorModuleProd(nn.Module):
         topk_bbox = anchors2bboxes(topk_anchor, topk_bbox_pred)  # [1, 7]
 
         # 6. truncate to max_num (==1 for now)
-        final_bboxes = topk_bbox[:self.max_num]
-        final_labels = topk_label[:self.max_num]
-        final_scores = topk_score[:self.max_num]
+        final_bboxes = topk_bbox[:1]
+        final_labels = topk_label[:1]
+        final_scores = topk_score[:1]
         
 
         result = {
@@ -185,14 +172,14 @@ class RoadSignDetectorModuleProd(nn.Module):
         batched_bbox_reg = anchor_target_dict['batched_bbox_reg']
         
         batched_bbox_reg = batched_bbox_reg.reshape(-1, 6)
-        pos_idx = (batched_bbox_labels >= 0) & (batched_bbox_labels < self.nclasses)
+        pos_idx = (batched_bbox_labels >= 0) & (batched_bbox_labels < self.num_classes)
         
         bbox_pred = bbox_pred[pos_idx]
         batched_bbox_reg = batched_bbox_reg[pos_idx]
 
-        num_cls_pos = (batched_bbox_labels < self.nclasses).sum() + 1
+        num_cls_pos = (batched_bbox_labels < self.num_classes).sum() + 1
         bbox_cls_pred = bbox_cls_pred[batched_label_weights > 0]
-        batched_bbox_labels = torch.where(batched_bbox_labels < 0, self.nclasses, batched_bbox_labels)
+        batched_bbox_labels = torch.where(batched_bbox_labels < 0, self.num_classes, batched_bbox_labels)
         batched_bbox_labels = batched_bbox_labels[batched_label_weights > 0]
         
         losses = self.loss_module.forward(

@@ -87,13 +87,3 @@ roadsign_detector:
       base_momentum: 0.85
       max_momentum: 0.95
       div_factor: 10
-
-    output_pool_nms: false
-    
-    # NMS parameters
-    nms_pre: 100
-    nms_thr: 0.01
-    score_thr: 0.1
-    max_num: 1
-    nclasses: ${model.roadsign_detector.num_classes}
-    assigners: null

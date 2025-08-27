@@ -39,14 +39,10 @@ class VoxelGeneratorWrapper(nn.Module):
             t = points.detach()
             if t.is_cuda:
                 t = t.cpu()
-            if t.ndim == 2 and t.shape[0] <= 8 and t.shape[1] > t.shape[0] and t.shape[0] == self.num_point_features:
-                t = t.t()
             t = t.to(torch.float32).contiguous()
             arr = t.numpy()
         elif isinstance(points, np.ndarray):
             arr = points
-            if arr.ndim == 2 and arr.shape[0] <= 8 and arr.shape[1] > arr.shape[0] and arr.shape[0] == self.num_point_features:
-                arr = arr.T
             if arr.dtype != np.float32:
                 arr = arr.astype(np.float32, copy=False)
             arr = np.ascontiguousarray(arr)

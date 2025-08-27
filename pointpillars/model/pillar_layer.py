@@ -26,7 +26,6 @@ class PillarLayer(nn.Module):
         '''
         pillars, coors, npoints_per_pillar = [], [], []
         for i, pts in enumerate(batched_pts):
-            pts = pts.T
             voxels_out, coors_out, num_points_per_voxel_out = self.voxel_layer(pts) 
 
             pillars.append(torch.from_numpy(voxels_out).cuda())
