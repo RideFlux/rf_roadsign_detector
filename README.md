@@ -4,7 +4,7 @@
 
 ## 개발 환경
 
-아래 환경은 필수적인 환경은 아니며, 모델 학습 시에는 적당한 버전의 Python과 CUDA 코드를 돌릴 수 있는 GPU, 모델 평가 시에는 Python만 있어도 됩니다.
+아래 환경은 개발에 사용한 환경이며, 필수적인 환경은 아닙니다. 모델 학습 시에는 적당한 버전의 Python과 CUDA 코드를 돌릴 수 있는 GPU, 모델 평가 시에는 Python만 있어도 됩니다.
 
 - Ubuntu 20.04.6 LTS (64-bit)
 - 12th Gen Intel® Core™ i7-12700 × 20
@@ -25,16 +25,26 @@ pip install -r requirements.txt
 아래 코드를 가상환경 터미널에 붙여넣기를 해 설치 여부를 확인하실 수 있습니다.
 
 ```bash
-python -c 'import pytorch_lightning as pl; print(f"PyTorch Lightning version: {pl.__version__}"); import torch; print(f"PyTorch version: {torch.__version__}"); print(f"CUDA available: {torch.cuda.is_available()}"); import hydra; print(f"Hydra version: {hydra.__version__}"); '
+python -c "import pytorch_lightning as pl, torch, hydra, rootutils, rich, tensorboard, spconv, cv2, matplotlib, numba, open3d as o3d, onnx, onnxruntime as ort, onnxsim, onnx_graphsurgeon as gs; print(f'PyTorch Lightning: {pl.__version__} \nPyTorch: {torch.__version__} \nCUDA available: {torch.cuda.is_available()} \nHydra: {hydra.__version__} \ntensorboard: {tensorboard.__version__} \nspconv: {spconv.__version__} \nOpenCV: {cv2.__version__} \nmatplotlib: {matplotlib.__version__} \nnumba: {numba.__version__} \nopen3d: {o3d.__version__} \nonnx: {onnx.__version__} \nonnxruntime: {ort.__version__} \nonnxsim: {onnxsim.__version__} \nonnx_graphsurgeon: {gs.__version__}')"
 ```
 
 아래처럼 각 모듈의 버전이 정상적으로 나온다면 성공입니다. (버전이 조금씩 다르더라도 괜찮습니다.)
 
 ```
-PyTorch Lightning version: 2.4.0
-PyTorch version: 2.4.1+cu121
-CUDA available: True
-Hydra version: 1.3.2
+PyTorch Lightning: 2.4.0 
+PyTorch: 2.4.1+cu121 
+CUDA available: True 
+Hydra: 1.3.2 
+tensorboard: 2.14.0 
+spconv: 2.3.6 
+OpenCV: 4.5.5 
+matplotlib: 3.6.3 
+numba: 0.58.1 
+open3d: 0.14.1 
+onnx: 1.17.0 
+onnxruntime: 1.19.2 
+onnxsim: 0.4.36 
+onnx_graphsurgeon: 0.5.8
 ```
 
 > CUDA available이 False라면 모델 평가만 진행할 수 있습니다.
@@ -228,12 +238,12 @@ Score Histogram은 이 분포를 나타내주며, 양쪽에 치우쳐 있을수�
 
 | 분류 | 이름 | 타입 | 설명 |
 |-----|-----|------|----|
-| Input | `batched_pts` | list[tensor] | pcd 데이터, dynamic 가능, 텐서 shape는 (각 프레임의 point 수, 4) |
-| Output | `final_boxes` | float32[1, 6] |  최종 박스의 $(x,y,z,w,l,h)$ |
-| Output | `final_labels` | int32[1] | 최종 박스의 클래스, 0 based |
-| Output | `final_scores` | float32[1] | 최종 박스의 confidence score로, 0.5 미만이면 표지판이 없는 것으로 간주 |
+| Input | `batched_pts` | `list[tensor]` | pcd 데이터, dynamic 가능, 텐서 shape는 (각 프레임의 point 수, 4) |
+| Output | `final_boxes` | `float32[1, 6]` |  최종 박스의 $(x,y,z,w,l,h)$ |
+| Output | `final_labels` | `int32[1]` | 최종 박스의 클래스, 0 based |
+| Output | `final_scores` | `float32[1]` | 최종 박스의 confidence score로, 0.5 미만이면 표지판이 없는 것으로 간주 |
 
-> Output은 python dictionary 형태로, 아래와 같이 반환된다. 가장 바깥쪽 `list`는 배치 내 프레임 별 결과를 갖고있다.
+> Output은 python dictionary 형태로, 아래와 같이 반환됩니다. 가장 바깥쪽 `list`는 배치 내 프레임 별 결과를 갖고 있습니다.
 
 ```py
 list[{
@@ -274,9 +284,9 @@ python tensorrt/trt_time_eval.py
 
 | 분류 | 이름 | 타입 | 설명 |
 |-----|-----|------|----|
-| Input | `points` | float32[1, 200000, 4] | pcd 데이터, 200000은 static이지만, 수정 가능. 이 크기에 맞게 입력 데이터를 slice 또는 zero padding 해줘야 함 |
-| Input | `num_points` | int32[1] | `points`에서 어디까지가 유효한 데이터인지 나타냅니다. |
-| Output | `final_boxes` | float32[1, 6] |  최종 박스의 $(x,y,z,w,l,h)$ |
-| Output | `final_labels` | int32[1] | 최종 박스의 클래스, 0 based |
-| Output | `final_scores` | float32[1] | 최종 박스의 confidence score로, 0.5 미만이면 표지판이 없는 것으로 간주 |
+| Input | `points` | `float32[1, 200000, 4]` | pcd 데이터, 200000은 static이지만, 수정 가능. <br/>이 크기에 맞게 입력 데이터를 slice 또는 zero padding 해줘야 함 |
+| Input | `num_points` | `int32[1]` | `points`에서 어디까지가 유효한 데이터인지 나타냄 |
+| Output | `final_boxes` | `float32[1, 6]` |  최종 박스의 $(x,y,z,w,l,h)$ |
+| Output | `final_labels` | `int32[1]` | 최종 박스의 클래스, 0 based |
+| Output | `final_scores` | `float32[1]` | 최종 박스의 confidence score로, 0.5 미만이면 표지판이 없는 것으로 간주 |
 
