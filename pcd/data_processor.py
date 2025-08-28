@@ -1,3 +1,4 @@
+import os
 from typing import Dict
 import sys
 import numpy as np
@@ -6,8 +7,8 @@ from rich.progress import track
 from pcd.utils import read_pcd
 
 class DataProcessor:
-    def __init__(self, pickle_files: Dict, stride):
-        self.pickle_files = pickle_files  # {'train': 'path/to/train.pkl', 'val': 'path/to/val.pkl', ...}
+    def __init__(self, root_dir, pickle_files: Dict, stride):
+        self.pickle_files = {key: os.path.join(root_dir, value) for key, value in pickle_files.items()}
         self.stride = stride
         self.valid_split_names = pickle_files.keys()
         pass

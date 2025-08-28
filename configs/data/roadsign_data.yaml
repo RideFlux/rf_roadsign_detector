@@ -8,12 +8,13 @@ datamodule:
 
   data_processor:
     _target_: pcd.data_processor.DataProcessor
+    root_dir: ${data.datasets.dataset_root_dir}
     pickle_files:
-      train: /home/rideflux/LIDAR_DATA/train_set.pkl
-      val: /home/rideflux/LIDAR_DATA/val_set.pkl
-      test1: /home/rideflux/LIDAR_DATA/test1_set.pkl
-      test2: /home/rideflux/LIDAR_DATA/test2_set.pkl
-      test3: /home/rideflux/LIDAR_DATA/test3_set.pkl
+      train: train_set.pkl
+      val: val_set.pkl
+      test1: test1_set.pkl
+      test2: test2_set.pkl
+      test3: test3_set.pkl
     stride: 1
   
   dataset_class:

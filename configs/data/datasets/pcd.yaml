@@ -1,15 +1,5 @@
 ## set data dir information
 
 dataset_root_dir: /home/rideflux/LIDAR_DATA
-label_dir_name: .
-rimg_dir_name: .
-
-imageset_files:
-  train:
-    - train_set.txt
-  val:
-    - test_set.txt
-  test:
-    - test_set.txt
 
 num_classes: 8

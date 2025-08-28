@@ -189,11 +189,6 @@ def modify_onnx(onnx_simp,
     onnx_final = gs.export_onnx(graph)
     onnx.save(onnx_final, "final.onnx")
     
-    '''
-    위 과정대로 하면 export용 pytorch 파일을 따로 만들지 않고 onnx단에서 처리 가능함
-    단 get_rotated_boxes는 c++에서 연산해야 함
-    '''
-    
     return onnx_final
 
 @hydra.main(version_base=None, config_path="configs", config_name="export.yaml")
