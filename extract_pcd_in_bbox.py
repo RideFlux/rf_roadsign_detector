@@ -78,7 +78,6 @@ def save_array_as_pcd(xyzi, pcd_path, metadata=None, intensity_type = np.uint8):
     if metadata is not None:
         md.update(metadata)
     
-    # print(md, len(pc_data))
     pcd = pypcd.PointCloud(md, pc_data)
     pcd.save_pcd(pcd_path, compression = 'binary')
     
@@ -109,9 +108,7 @@ def infer_and_crop_pcd(model, cfg, device):
     os.makedirs(info_dir, exist_ok=True)
 
     for idx, batch in enumerate(tqdm(test_dataloader)):
-        # if idx < 12: continue
         batch_pcds, batch_boxes, batch_labels = batch
-        # print(batch)
         batch_len = len(batch_pcds)
         for i in range(batch_len):
             batch_pcds[i] = batch_pcds[i].to(device)
@@ -134,12 +131,9 @@ def infer_and_crop_pcd(model, cfg, device):
             gt_crop = crop_pcd_in_bbox(pcd, true_bbox[0])
             is_detect_valid = (detect_info['final_scores'].cpu()[0] > threshold)
             if is_detect_valid:
-            # if False:
                 model_crop = crop_pcd_in_bbox(pcd, detect_info['final_bboxes'][0].cpu())
             else:
                 model_crop = torch.zeros((0, 4), dtype=torch.float32, device=device)
-
-            # print(model_crop, len(model_crop))
 
             info_dict = {
                 'gt_class' : true_cls.tolist()[0],
@@ -148,8 +142,6 @@ def infer_and_crop_pcd(model, cfg, device):
                 'infer_class' : detect_info['final_labels'][0].cpu().tolist(),
                 'infer_bbox' : detect_info['final_bboxes'][0].cpu().tolist(),
             }
-
-            # print(info_dict)
 
             original_pcd_file_path = os.path.join(original_pcd_dir, f"{cnt:05d}.pcd")
             gt_crop_pcd_file_path = os.path.join(gt_crop_pcd_dir, f"{cnt:05d}.pcd")
