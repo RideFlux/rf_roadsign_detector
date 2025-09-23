@@ -11,3 +11,7 @@ tb_logs/
 runs/
 
 *.so
+
+*.txt
+*.pcd
+*.png

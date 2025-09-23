@@ -1,0 +1,23 @@
+task_name: crop_pcd
+
+eval_checkpoint: checkpoints/best.ckpt
+cropped_pcd_save_dir_path: crop_test
+detection_threshold: 0.5
+selected_dataset: test3
+filter_loc_sign_only : False
+
+defaults:
+  - _self_
+  - data: roadsign_data
+  - model: pointpillars
+  - callbacks: default
+  - logger: mlflow
+  - trainer: ddp
+  - paths: default
+  - override hydra/hydra_logging: disabled
+  - override hydra/job_logging: disabled
+
+hydra:  
+  output_subdir: null  
+  run:  
+    dir: .
