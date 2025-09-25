@@ -22,8 +22,7 @@ Matcher::Matcher(const std::string& target_path, const std::string& source_path)
   }
 }
 
-void Matcher::match(){
-  // if(optimizer_.isSourceCloudEmpty() || optimizer_.isTargetCloudEmpty()) return;
+void Matcher::match(bool visualize_process){
   
   Eigen::Affine3f current_transform = Eigen::Affine3f::Identity();
   pcl::PointCloud<Point_T>::Ptr updated_cloud(new pcl::PointCloud<Point_T>());
@@ -38,6 +37,16 @@ void Matcher::match(){
     optimizer_.optimize();
     auto update = optimizer_.getResult();
     optimizer_.clear();
+
+    if(visualize_process){
+      static pcl::visualization::PCLVisualizer::Ptr viewer(new pcl::visualization::PCLVisualizer(" "));
+      viewer->addCoordinateSystem(1.0);
+      viewer->initCameraParameters();
+      viewer->setCameraPosition(source_cloud_->points[0].x + 5.0 ,source_cloud_->points[0].y - 5.0, 0, 
+                                target_cloud_->points[0].x + 5.0 ,target_cloud_->points[0].y - 5.0, 0, 
+                                0,0,1);
+      visualizeRegistration(viewer, target_cloud_,source_cloud_,updated_cloud,correspondence_vec_);
+    }
 
     current_transform = update * current_transform;
 
@@ -76,35 +85,55 @@ void Matcher::saveResultPCD(const std::string& path){
     std::cerr << "cannot save result pcd " << path << std::endl;
   }
 }
+void Matcher::visualizeResult(){
+  pcl::visualization::PCLVisualizer::Ptr viewer(new pcl::visualization::PCLVisualizer("Result"));
+  viewer->addCoordinateSystem(1.0);
+  viewer->initCameraParameters();
+  viewer->setCameraPosition(source_cloud_->points[0].x + 5.0 ,source_cloud_->points[0].y - 5.0, 0, 
+                                target_cloud_->points[0].x + 5.0 ,target_cloud_->points[0].y - 5.0, 0, 
+                                0,0,1);
+  visualizeRegistration(viewer,target_cloud_,source_cloud_,updated_cloud_);
+  while (!viewer->wasStopped()) {
+    viewer->spinOnce(100);
+  }
+}
 
 void Matcher::visualizeRegistration(
+  const pcl::visualization::PCLVisualizer::Ptr& viewer,
   const pcl::PointCloud<pcl::PointXYZ>::ConstPtr& target,
   const pcl::PointCloud<pcl::PointXYZ>::ConstPtr& source,
-  const pcl::PointCloud<pcl::PointXYZ>::ConstPtr& result) {
+  const pcl::PointCloud<pcl::PointXYZ>::ConstPtr& result,
+  const std::vector<Optimizer::Correspondence>& correspondence_vec) {
   
-  pcl::visualization::PCLVisualizer::Ptr viewer(new pcl::visualization::PCLVisualizer(" "));
+  viewer->removeAllPointClouds();
+  viewer->removeAllShapes();
   viewer->setBackgroundColor(0.1, 0.1, 0.1); // 배경 어둡게
 
   // Target 포인트 클라우드 (흰색)
   pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> target_color(target, 255, 255, 255);
   viewer->addPointCloud<pcl::PointXYZ>(target, target_color, "target cloud");
-  viewer->setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1.5, "target cloud");
+  viewer->setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1.0, "target cloud");
 
   // Source 포인트 클라우드 (빨간색)
   pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> source_color(source, 255, 0, 0);
   viewer->addPointCloud<pcl::PointXYZ>(source, source_color, "source cloud");
-  viewer->setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1.5, "source cloud");
+  viewer->setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1.0, "source cloud");
 
   // 정합된  포인트 클라우드 (녹색)
   pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> aligned_color(result, 0, 255, 0);
   viewer->addPointCloud<pcl::PointXYZ>(result, aligned_color, "aligned cloud");
   viewer->setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1.5, "aligned cloud");
 
-  viewer->addCoordinateSystem(1.0);
-  viewer->initCameraParameters();
-  
-  // 창이 닫힐 때까지 대기
-  while (!viewer->wasStopped()) {
-    viewer->spinOnce(100);
+  if(!correspondence_vec.empty()){
+    for(std::size_t i=0; i<correspondence_vec.size(); i++){
+      const auto& corr = correspondence_vec[i];
+      const auto& src = result->points[corr.in_idx];
+      const auto& tgt = target->points[corr.ref_idx];
+
+      std::string line_id = "line" + std::to_string(i);
+      viewer->addLine<Point_T>(src, tgt, 255, 255, 0, line_id);
+    }
   }
+
+  viewer->spinOnce(100);
 }

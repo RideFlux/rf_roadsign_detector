@@ -9,15 +9,18 @@ class Matcher
 {
 public: 
   Matcher(const std::string& target_path, const std::string& source_path);
-  void match();
+  void match(bool visualize_process = false);
   void saveResultPCD(const std::string& path);
-  void visualizeResult(){visualizeRegistration(target_cloud_,source_cloud_,updated_cloud_);}
+  void visualizeResult();
 
 private:
   void findCorrespondences(pcl::PointCloud<Point_T>::Ptr in_cloud, pcl::PointCloud<Point_T>::Ptr ref_cloud);
-  void visualizeRegistration(const pcl::PointCloud<Point_T>::ConstPtr& target,
+  void visualizeRegistration(
+    const pcl::visualization::PCLVisualizer::Ptr& viewer,
+    const pcl::PointCloud<Point_T>::ConstPtr& target,
     const pcl::PointCloud<Point_T>::ConstPtr& source,
-    const pcl::PointCloud<Point_T>::ConstPtr& result);
+    const pcl::PointCloud<Point_T>::ConstPtr& result,
+    const std::vector<Optimizer::Correspondence>& correspondence_vec = std::vector<Optimizer::Correspondence>());
 
 public: 
 
