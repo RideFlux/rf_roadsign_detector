@@ -26,7 +26,7 @@ public:
 
 private:
   const int MAX_ITER_NUM = 20;
-  const double CONVERGE_THRESHOLD_TRANSLATION = 0.025;
+  const double CONVERGE_THRESHOLD_TRANSLATION = 0.001;
   const double CONVERGE_THRESHOLD_ROTATION = 0.25/180 * M_PI;
 
   pcl::PointCloud<Point_T>::Ptr target_cloud_;
