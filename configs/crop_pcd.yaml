@@ -1,6 +1,6 @@
 task_name: crop_pcd
 
-eval_checkpoint: checkpoints/best.ckpt
+checkpoint: checkpoints/best.ckpt
 cropped_pcd_save_dir_path: crop_test
 detection_threshold: 0.5
 selected_dataset: test3
