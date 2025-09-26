@@ -12,25 +12,6 @@
 
 ---
 
-## 📦 필수 요구사항 (Prerequisites)
-
-프로젝트를 빌드하기 전, 아래 라이브러리가 설치되어 있는지 확인해주세요.
-
-* **C++17** 이상을 지원하는 컴파일러 (g++)
-    ```bash
-    sudo apt-get update && sudo apt-get install -y build-essential g++
-    ```
-* **PCL (Point Cloud Library)**
-    ```bash
-    sudo apt-get install -y libpcl-dev
-    ```
-* **OpenCV**
-    ```bash
-    sudo apt-get install -y libopencv-dev
-    ```
-
----
-
 ## 🚀 시작하기 (Getting Started)
 
 ### 1. 빌드 (Build)
@@ -87,3 +68,23 @@ visualize_process = true
 visualize_result = true
 save_result_pcd = true
 ```
+---
+
+## 📦 필수 요구사항 (Prerequisites)
+
+빌드에 실패한다면, 아래 라이브러리가 설치되어 있는지 확인해주세요.
+
+* **C++17** 이상을 지원하는 컴파일러 (g++)
+    ```bash
+    sudo apt-get update && sudo apt-get install -y build-essential g++
+    ```
+* **PCL (Point Cloud Library)**
+    ```bash
+    sudo apt-get install -y libpcl-dev
+    ```
+* **OpenCV**
+    ```bash
+    sudo apt-get install -y libopencv-dev
+    ```
+
+
