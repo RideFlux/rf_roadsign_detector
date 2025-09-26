@@ -1,9 +1,14 @@
+# "~~~/~~~.pcd"의 형태가 되어야 합니다.
 [Paths]
-target_cloud_path = "/home/rideflux/kict/rf_roadsign_detector/crop_test/gt_crop_pcd/00003.pcd"
-source_cloud_path = "/home/rideflux/kict/rf_roadsign_detector/crop_test/gt_crop_pcd/00004.pcd"
-result_pcd_path = "/home/rideflux/kict/rf_roadsign_detector/result.pcd"
+target_cloud_path = "PATH_TO_MAP_PCD_FILE" 
+source_cloud_path = "PATH_TO_TEST_PCD_FILE"
+result_pcd_path = "PATH_TO_SAVE_RESULT_PCD_FILE"
 
+
+# visualize_process : 매칭 과정을 visualize 합니다 (true/false)
+# visualize_result  : 매칭 결과를 visualize 합니다 (true/false)
+# save_result_pcd   : result pcd를 저장합니다     (true/false)
 [Settings]
-visualize_process = false
+visualize_process = true
 visualize_result = true
-save_result_pcd = false
+save_result_pcd = true
