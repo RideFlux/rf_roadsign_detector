@@ -1,0 +1,9 @@
+[Paths]
+target_cloud_path = "/home/rideflux/kict/rf_roadsign_detector/crop_test/gt_crop_pcd/00003.pcd"
+source_cloud_path = "/home/rideflux/kict/rf_roadsign_detector/crop_test/gt_crop_pcd/00004.pcd"
+result_pcd_path = "/home/rideflux/kict/rf_roadsign_detector/result.pcd"
+
+[Settings]
+visualize_process = false
+visualize_result = true
+save_result_pcd = false
