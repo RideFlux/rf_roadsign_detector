@@ -15,6 +15,10 @@ int main(int argc, char** argv) {
 	std::string source_cloud_path = tbl["Paths"]["source_cloud_path"].value_or<std::string>("");
 	std::string result_pcd_path   = tbl["Paths"]["result_pcd_path"].value_or<std::string>("");
 	
+  std::cout << "target_cloud_path : " << target_cloud_path << std::endl;
+  std::cout << "source_cloud_path : " << source_cloud_path << std::endl;
+  std::cout << "result_pcd_path   : " << result_pcd_path << std::endl;
+
 	bool visualize_process = tbl["Settings"]["visualize_process"].value_or<bool>(false);
 	bool visualize_result = tbl["Settings"]["visualize_result"].value_or<bool>(false);
 	bool save_result_pcd = tbl["Settings"]["save_result_pcd"].value_or<bool>(false);

@@ -53,10 +53,10 @@ void Matcher::match(bool visualize_process){
     auto delta_t = update.translation().norm();
     auto delta_R = Eigen::AngleAxisf(update.rotation()).angle();
 
-    if(delta_R < CONVERGE_THRESHOLD_ROTATION && delta_t < CONVERGE_THRESHOLD_TRANSLATION)  
+    if(delta_R < CONVERGE_THRESHOLD_ROTATION && delta_t < CONVERGE_THRESHOLD_TRANSLATION) 
       break;
   }
-  std::cout << "result : " << current_transform.matrix() << std::endl;
+  // std::cout << "result : " << current_transform.matrix() << std::endl;
   *updated_cloud_ = *updated_cloud;
 }
 
@@ -113,16 +113,19 @@ void Matcher::visualizeRegistration(
   pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> target_color(target, 255, 255, 255);
   viewer->addPointCloud<pcl::PointXYZ>(target, target_color, "target cloud");
   viewer->setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1.0, "target cloud");
+  viewer->addText("WHITE : Target Cloud", 10, 50, 16, 1.0, 1.0, 1.0, "target_text");
 
   // Source 포인트 클라우드 (빨간색)
   pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> source_color(source, 255, 0, 0);
   viewer->addPointCloud<pcl::PointXYZ>(source, source_color, "source cloud");
   viewer->setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1.0, "source cloud");
+  viewer->addText("   RED   : Source Cloud", 10, 70, 16, 1.0, 0.0, 0.0, "source_text");
 
   // 정합된  포인트 클라우드 (녹색)
   pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> aligned_color(result, 0, 255, 0);
   viewer->addPointCloud<pcl::PointXYZ>(result, aligned_color, "aligned cloud");
   viewer->setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1.5, "aligned cloud");
+  viewer->addText("GREEN : Result Cloud", 10, 90, 16, 0.0, 1.0, 0.0, "result_text");
 
   if(!correspondence_vec.empty()){
     for(std::size_t i=0; i<correspondence_vec.size(); i++){
