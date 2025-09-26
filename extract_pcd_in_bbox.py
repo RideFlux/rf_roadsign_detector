@@ -28,8 +28,8 @@ def crop_pcd_in_bbox(pcd, bbox):
     maxx = cx + dx / 2
     miny = cy - dy / 2
     maxy = cy + dy / 2
-    minz = cz - dz / 2
-    maxz = cz + dz / 2
+    minz = cz
+    maxz = cz + dz
 
     filter = torch.logical_and(
         torch.logical_and (torch.logical_and(pcd[:, 0] > minx, pcd[:, 0] < maxx),

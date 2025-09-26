@@ -56,10 +56,10 @@ class RoadSignDataModule(LightningDataModule):
             collate_fn = self.val_dataset.collate
         )
     
-    def test_dataloader(self) -> DataLoader[Any]:
+    def test_dataloader(self, testset_name = 'test1') -> DataLoader[Any]:
         if self.test_dataset is None:
             dataset = instantiate(self.dataset_class_dict)
-            dataset.setDataset(self.data_processor.get_data_list('test1'))
+            dataset.setDataset(self.data_processor.get_data_list(testset_name))
             self.test_dataset = dataset
         print('test dataset size :', len(self.test_dataset))
 
