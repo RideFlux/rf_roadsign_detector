@@ -94,7 +94,7 @@ def vis_core(plys):
     finally:
         vis.destroy_window()
 
-def draw_bev(points, gt_box, box=None, gt_label=None, pred_label=None, mode=3, x_range=(-8, 0), y_range=(-48, 0), z_range=(-3, 1)):
+def draw_bev(points, gt_box, box=None, gt_label=None, pred_label=None, mode=3, x_range=(-8, 0), y_range=(-48, 0), z_range=(-3, 1), pred_score = None):
 
     # FV, BEV 크기
     w1, h1, w2, h2 = 640, 320, 1920, 320
@@ -180,7 +180,10 @@ def draw_bev(points, gt_box, box=None, gt_label=None, pred_label=None, mode=3, x
     thickness = 1
     text_width, text_height = cv2.getTextSize(f'True Class: {gt_label+1}, Pred Class: {pred_label+1}', font, fontScale, thickness)[0]
     mid = (40 + (w1 + 40) * option_1 + (w2 + 40) * option_2) // 2
-    cv2.putText(bev_img, f'True Class: {gt_label+1}, Pred Class: {pred_label+1}', (mid-text_width//2, 50+text_height), font, fontScale, fontColor, thickness, cv2.LINE_AA)
+    text_content = f'True Class: {gt_label+1}, Pred Class: {pred_label+1}'
+    if pred_score is not None:
+        text_content = text_content + f', Pred Score: {pred_score:.3f}'
+    cv2.putText(bev_img, text_content, (mid-text_width//2, 50+text_height), font, fontScale, fontColor, thickness, cv2.LINE_AA)
 
     return bev_img
 

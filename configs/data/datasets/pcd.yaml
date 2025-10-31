@@ -1,5 +1,6 @@
 ## set data dir information
 
-dataset_root_dir: /home/rideflux/LIDAR_DATA
+# dataset_root_dir: /media/jungirf/NIA1/roadsign_data_pcd/pointpillar_data/all_roadsign_with_label
+dataset_root_dir: /media/jungirf/nia_0516/LIDAR_DATA
 
 num_classes: 8

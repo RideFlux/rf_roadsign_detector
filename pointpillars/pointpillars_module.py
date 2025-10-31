@@ -162,7 +162,7 @@ class RoadSignDetectorModule(LightningModule):
         return results
 
     def get_loss(self, data, idx, mode='train') -> Tensor:
-        img, batched_gt_bboxes, batched_gt_labels = data
+        img, batched_gt_bboxes, batched_gt_labels, _ = data
         bbox_cls_pred, bbox_pred, anchor_target_dict = self.forward(
             img, mode='train', batched_gt_bboxes=batched_gt_bboxes, batched_gt_labels=batched_gt_labels
         )

@@ -45,7 +45,7 @@ def main(cfg: DictConfig):
         model.load_state_dict(loaded_state_dict, strict=False)
         print("Checkpoint loaded successfully.")
 
-        inference_test_imgs_qtt(model, cfg, eval_mode)
+        inference_test_imgs_qtt(model, cfg, eval_mode, testset_name='test1')
 
 if __name__ == '__main__':
     main()

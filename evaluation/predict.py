@@ -8,7 +8,7 @@ from rich.progress import track
 from evaluation.utils import compute_distance, create_hyperlink
 from pointpillars.utils.vis_o3d import draw_bev, vis_pc
 
-def inference_test_imgs_qtt(model, cfg, mode):
+def inference_test_imgs_qtt(model, cfg, mode, testset_name = 'test1'):
 
     score_list = []
     result_list = []
@@ -18,7 +18,7 @@ def inference_test_imgs_qtt(model, cfg, mode):
     num_classes = cfg.data.datasets.num_classes
     
     dataset = hydra.utils.instantiate(cfg.data.datamodule)
-    test_dataloader = dataset.test_dataloader()
+    test_dataloader = dataset.test_dataloader(testset_name)
     data_iter = iter(test_dataloader)
     data = next(data_iter)
     if mode in [1, 2, 3]:
@@ -30,7 +30,8 @@ def inference_test_imgs_qtt(model, cfg, mode):
     seq = track(range(batch_len-1), description="Processing batches") if mode == 5 else range(batch_len)
 
     for _ in seq:
-        point_clouds, boxes, labels = data
+        # print(data)
+        point_clouds, boxes, labels, pcd_paths = data
         
         for i in range(len(point_clouds)):
             point_clouds[i] = point_clouds[i].to(device)
@@ -41,14 +42,28 @@ def inference_test_imgs_qtt(model, cfg, mode):
             point_cloud = point_clouds[i].detach().cpu().numpy()
             gt_bboxes = boxes[i].detach().cpu().numpy()
             gt_labels = labels[i].detach().cpu().numpy()
+            # print(detects[i].keys())
             pred_bbox = detects[i]["final_bboxes"][0].detach().cpu().numpy()
             pred_label = detects[i]["final_labels"][0].detach().cpu().numpy()
             pred_score = detects[i]["final_scores"][0].detach().cpu().numpy()
 
             score_list.append(pred_score)
+            # if len(gt_labels) == 0 and pred_score < 0.5:
+            #     continue
+
+            if mode in [1,2,3,4]:
+                print(gt_bboxes)
+                print(pred_bbox)
+                print(gt_labels, pred_label, pred_score)
+                print(pcd_paths[i])
+                if len(gt_bboxes) == 0:
+                    gt_bboxes = [pred_bbox]
             if len(gt_bboxes) > 0:
                 gt_bbox = gt_bboxes[0]
-                gt_label = gt_labels[0]
+                if len(gt_labels) == 0:
+                    gt_label = num_classes
+                else:
+                    gt_label = gt_labels[0]
                 distance = compute_distance(pred_bbox, gt_bbox)
                 
                 gt_in_range = (gt_bbox[0] >= detection_range[0] and gt_bbox[0] <= detection_range[3] and
@@ -71,9 +86,12 @@ def inference_test_imgs_qtt(model, cfg, mode):
                                pred_bbox,
                                gt_label,
                                pred_label,
-                               mode=mode)
+                               mode=mode,
+                               pred_score=pred_score)
                 cv2.imwrite(cfg.inference_img_path, bev)
-                input()
+                a = input()
+                if a == 'c':
+                    exit()
 
             if mode == 4:
                 vis_pc(point_cloud,
@@ -84,6 +102,9 @@ def inference_test_imgs_qtt(model, cfg, mode):
                     return
 
         try:
+            # a = input()
+            # if a == 'c':
+            #     raise(StopIteration)
             data = next(data_iter)
         except StopIteration:
             data = None
