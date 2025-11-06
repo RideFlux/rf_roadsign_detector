@@ -43,7 +43,28 @@ class RoadSignDetectorModuleProd(nn.Module):
         self.head = instantiate(head)
         self.anchors_generator = instantiate(anchors)
         self.loss_module = instantiate(loss_module)
+
+        self.classfication_head = nn.Sequential(
+            nn.Conv2d(1, 32, kernel_size=3, padding=1),
+            nn.ReLU(),
+            nn.MaxPool2d(2, 2),
+
+            nn.Conv2d(32, 64, kernel_size=3, padding=1),
+            nn.ReLU(),
+            nn.MaxPool2d(2, 2),
+
+
+            nn.Flatten(),
+            nn.Linear(64 * 25 * 25, 256),
+            nn.ReLU(),
+            nn.Linear(256, num_classes),
+            nn.Softmax(dim=1)
+        )
+
         pass
+
+    def lidar_to_image(self, lidar_points):  ###############TODO###################3
+        return torch.rand(100, 100).float()
 
     def forward(self, batch_dict, mode='val', batched_gt_bboxes=None, batched_gt_labels=None):
         
@@ -60,11 +81,35 @@ class RoadSignDetectorModuleProd(nn.Module):
         x = self.neck(xs)
         
         bbox_cls_pred, bbox_pred = self.head(x)
-        device = bbox_cls_pred.device
-        feature_map_size = torch.tensor(list(bbox_cls_pred.size()[-2:]), device=device)
+        feature_map_size = torch.tensor(list(bbox_cls_pred.size()[-2:]), device=bbox_cls_pred.device)
         anchors = self.anchors_generator.get_multi_anchors(feature_map_size)
         batched_anchors = [anchors for _ in range(batch_size)]
         
+        results = self.get_predicted_bboxes(bbox_cls_pred=bbox_cls_pred, 
+                                            bbox_pred=bbox_pred,
+                                            batched_anchors=batched_anchors, img_cls_pred = None)
+        
+
+        bboxes = [bbox["final_bboxes"] for bbox in results]
+        imgs = []
+        batched_pts = batch_dict["points"]
+
+        lidar_points = batched_pts[0]
+        cx, cy, cz, dx, dy, dz = bboxes[0].T
+        in_box_mask = (
+            (lidar_points[:, 0] > cx - dx / 2) & (lidar_points[:, 0] < cx + dx / 2) &
+            (lidar_points[:, 1] > cy - dy / 2) & (lidar_points[:, 1] < cy + dy / 2) &
+            (lidar_points[:, 2] > cz - dz / 2) & (lidar_points[:, 2] < cz + dz / 2)
+        )
+
+        lidar_points = lidar_points[in_box_mask]
+        ###############TODO###################3
+        img = self.lidar_to_image(lidar_points)
+        imgs.append(img)
+
+        imgs = torch.stack(imgs).unsqueeze(1).to(bbox_cls_pred.device)
+        img_cls_pred = self.classfication_head(imgs)
+
         if mode == 'train':
             anchor_target_dict = anchor_target(
                 batched_anchors=batched_anchors, 
@@ -73,18 +118,21 @@ class RoadSignDetectorModuleProd(nn.Module):
                 nclasses=self.num_classes
             )
             
-            return bbox_cls_pred, bbox_pred, anchor_target_dict
+            return bbox_cls_pred, bbox_pred, anchor_target_dict, img_cls_pred
         elif mode == 'val':
-
+            img_cls_pred = torch.argmax(img_cls_pred, dim =1)
             results = self.get_predicted_bboxes(bbox_cls_pred=bbox_cls_pred, 
                                                 bbox_pred=bbox_pred,
-                                                batched_anchors=batched_anchors)
+                                                batched_anchors=batched_anchors,
+                                                img_cls_pred = img_cls_pred)
             return results
 
         elif mode == 'test':
+            img_cls_pred = torch.argmax(img_cls_pred, dim =1)
             results = self.get_predicted_bboxes(bbox_cls_pred=bbox_cls_pred,        
                                                 bbox_pred=bbox_pred,
-                                                batched_anchors=batched_anchors)
+                                                batched_anchors=batched_anchors,
+                                                img_cls_pred = img_cls_pred)
             return results
         else:
             raise ValueError   
@@ -136,7 +184,7 @@ class RoadSignDetectorModuleProd(nn.Module):
         }
         return result
 
-    def get_predicted_bboxes(self, bbox_cls_pred, bbox_pred, batched_anchors):
+    def get_predicted_bboxes(self, bbox_cls_pred, bbox_pred, batched_anchors, img_cls_pred):
         '''
         bbox_cls_pred: (bs, n_anchors*3, 248, 216) 
         bbox_pred: (bs, n_anchors*7, 248, 216)
@@ -153,12 +201,16 @@ class RoadSignDetectorModuleProd(nn.Module):
             result = self.get_predicted_bboxes_single(bbox_cls_pred=bbox_cls_pred[i],
                                                       bbox_pred=bbox_pred[i],
                                                       anchors=batched_anchors[i])
+            
+            if(img_cls_pred is not None):
+                result["final_labels"][0] = img_cls_pred[i]
+                
             results.append(result)
         return results
 
     def get_loss(self, data, idx, mode='train') -> Tensor:
-        img, batched_gt_bboxes, batched_gt_labels = data
-        bbox_cls_pred, bbox_pred, anchor_target_dict = self.forward(
+        img, batched_gt_bboxes, batched_gt_labels, _ = data
+        bbox_cls_pred, bbox_pred, anchor_target_dict, img_cls_pred = self.forward(
             img, mode='train', batched_gt_bboxes=batched_gt_bboxes, batched_gt_labels=batched_gt_labels
         )
 
@@ -182,6 +234,10 @@ class RoadSignDetectorModuleProd(nn.Module):
         batched_bbox_labels = torch.where(batched_bbox_labels < 0, self.num_classes, batched_bbox_labels)
         batched_bbox_labels = batched_bbox_labels[batched_label_weights > 0]
         
+        img_cls_gt = torch.cat(batched_gt_labels)
+        img_cls_gt = img_cls_gt.to(torch.long)
+        img_cls_loss = nn.CrossEntropyLoss()(img_cls_pred, img_cls_gt)
+
         losses = self.loss_module.forward(
             bbox_cls_pred=bbox_cls_pred,
             bbox_pred=bbox_pred,
@@ -189,6 +245,9 @@ class RoadSignDetectorModuleProd(nn.Module):
             num_cls_pos=num_cls_pos,
             batched_bbox_reg=batched_bbox_reg
         )
+
+        losses["total_loss"] = losses["total_loss"] + img_cls_loss
+        losses["img_cls_loss"] = img_cls_loss
 
         if(mode == 'train'):
             writer.add_scalar("Loss/train", losses['total_loss'], idx)
