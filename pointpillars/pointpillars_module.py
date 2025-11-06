@@ -95,7 +95,7 @@ class RoadSignDetectorModule(LightningModule):
         
         results = self.get_predicted_bboxes(bbox_cls_pred=bbox_cls_pred, 
                                             bbox_pred=bbox_pred,
-                                            batched_anchors=batched_anchors)
+                                            batched_anchors=batched_anchors, img_cls_pred = None)
         
 
         bboxes = [bbox["final_bboxes"] for bbox in results]
@@ -129,16 +129,19 @@ class RoadSignDetectorModule(LightningModule):
             
             return bbox_cls_pred, bbox_pred, anchor_target_dict, img_cls_pred
         elif mode == 'val':
-
+            img_cls_pred = torch.argmax(img_cls_pred, dim =1)
             results = self.get_predicted_bboxes(bbox_cls_pred=bbox_cls_pred, 
                                                 bbox_pred=bbox_pred,
-                                                batched_anchors=batched_anchors)
+                                                batched_anchors=batched_anchors,
+                                                img_cls_pred = img_cls_pred)
             return results
 
         elif mode == 'test':
+            img_cls_pred = torch.argmax(img_cls_pred, dim =1)
             results = self.get_predicted_bboxes(bbox_cls_pred=bbox_cls_pred,        
                                                 bbox_pred=bbox_pred,
-                                                batched_anchors=batched_anchors)
+                                                batched_anchors=batched_anchors,
+                                                img_cls_pred = img_cls_pred)
             return results
         else:
             raise ValueError   
@@ -187,7 +190,7 @@ class RoadSignDetectorModule(LightningModule):
         }
         return result
 
-    def get_predicted_bboxes(self, bbox_cls_pred, bbox_pred, batched_anchors):
+    def get_predicted_bboxes(self, bbox_cls_pred, bbox_pred, batched_anchors, img_cls_pred):
         '''
         bbox_cls_pred: (bs, n_anchors*3, 248, 216) 
         bbox_pred: (bs, n_anchors*7, 248, 216)
@@ -204,6 +207,10 @@ class RoadSignDetectorModule(LightningModule):
             result = self.get_predicted_bboxes_single(bbox_cls_pred=bbox_cls_pred[i],
                                                       bbox_pred=bbox_pred[i],
                                                       anchors=batched_anchors[i])
+            
+            if(img_cls_pred is not None):
+                result["final_labels"][0] = img_cls_pred[i]
+                
             results.append(result)
         return results
 
