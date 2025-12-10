@@ -5,15 +5,14 @@ import numpy as np
 from collections import defaultdict
 
 # 설정
-# root_dir = '/media/jungirf/NIA1/roadsign_data_pcd/pointpillar_data/all_roadsign_with_label'
-root_dir = '/media/jungirf/nia_0516/LIDAR_DATA'
+root_dir = '/media/jungirf/nia_0516/LIDAR_DATA2'
 
 # 결과 파일
-train_file = 'train_set_straight_ver1.pkl'
-val_file = 'val_set_straight_ver1.pkl'
-test1_file = 'test1_set_straight_ver1.pkl'
-test2_file = 'test2_set_straight_ver1.pkl'
-test3_file = 'test3_set_straight_ver1.pkl'
+train_file  = 'train_set_regression.pkl'
+val_file    = 'val_set_regression.pkl'
+test1_file  = 'test1_set_regression_test1.pkl'
+test2_file  = 'test2_set_regression_test2.pkl'
+test3_file  = 'test3_set_regression_test3.pkl'
 
 def parse_label_file(txt_path):
     """txt 파일에서 라벨을 파싱하여 클래스와 bounding box 좌표를 반환"""
@@ -137,7 +136,7 @@ def split_dataset_by_class(root_dir):
     fp_paths = []
     d_train, d_val = [], []
     total_class_dict = defaultdict(list)
-    # 1. 모든 pcd 파일 탐색
+    # 1. sh 붙지 않은 모든 pcd 파일 탐색
     for dirpath, _, filenames in os.walk(root_dir):
         # print(dirpath)
         # print(filenames)
@@ -149,6 +148,8 @@ def split_dataset_by_class(root_dir):
         #     continue
         # if 'label_1002' not in dirpath:
         #     continue
+        if 'sh_' in dirpath:
+            continue
         class_dict = defaultdict(list)
         for fn in filenames:
             if fn.endswith(".pcd"):
@@ -189,6 +190,23 @@ def split_dataset_by_class(root_dir):
                 d_train.extend(paths[:-num_val])
             else:
                 d_train.extend(paths)  # 샘플 적으면 모두 train
+
+    # sh 붙은 파일들에 대한 data split
+    for dirpath, _, filenames in os.walk(root_dir):
+        if 'sh_' not in dirpath:
+            continue
+        for fn in filenames:
+            if not fn.endswith(".pcd"):
+                continue
+            pcd_path = os.path.join(dirpath, fn)
+            no_ext_path = os.path.splitext(pcd_path)[0]  # .pcd 제거
+            relative_path = os.path.relpath(no_ext_path, root_dir)
+
+            if 'test' in dirpath:
+                d_val.append(relative_path)
+            else:
+                d_train.append(relative_path)
+
 
     return d_train, d_val, fp_paths, total_class_dict
 
@@ -241,7 +259,7 @@ d_train, d_val, fp_paths, class_dict = split_dataset_by_class(root_dir)
 for k, v in class_dict.items():
     print(k, ":", len(v))
 
-fp_sample = random.sample(fp_paths, int(len(fp_paths) * 0.05))
+fp_sample = random.sample(fp_paths, int(len(fp_paths) * 0.5))
 num_f_val = int(len(fp_sample) * 0.2)
 f_train = fp_sample[num_f_val:]
 f_val = fp_sample[:num_f_val]

@@ -8,6 +8,8 @@ import numpy as np
 import os
 from tqdm import tqdm
 import torch.nn.functional as F
+from pcd.utils import read_pcd
+from roadsign_classifier import ImageClassificationDataset, Classifier
 
 pandarGeneral_elev_angle_map = np.array(
     [
@@ -83,10 +85,6 @@ def get_image(bboxes, points, size_u = 64, size_v = 32):
     min_y = cy - 1
     max_y = cy + 1
 
-    # cz = (min_z + max_z) / 2 + np.random.rand() - 0.5
-    # min_z = cz - dz / 2
-    # max_z = cz + dz / 2
-
     mask = (
         (points[:, 0] >= min_x) & (points[:, 0] <= max_x) &
         (points[:, 1] >= min_y) & (points[:, 1] <= max_y) ## &
@@ -94,15 +92,13 @@ def get_image(bboxes, points, size_u = 64, size_v = 32):
     )
     points = points[mask]
     if len(points) < 50 or len(points) > 50000:
-        return torch.zeros((3, size_u, size_v))
-        # return torch.zeros((2, size_u, size_v))
-    x, y, z, intensity = points[:, 0], points[:, 1], points[:, 2], points[:, 3]
+        return torch.zeros((3, size_u, size_v)).cuda()
     
+    x, y, z, intensity = points[:, 0], points[:, 1], points[:, 2], points[:, 3]
     # 64x32 grid로 매핑할 인덱스 계산
-    # x축은 x좌표 정보를 이용
-    # z축은 lidar의 ring index를 찾아서 배치
-    grid_v = ((max_x - x) / (max_x - min_x) * size_v).long().clamp(0, size_v-1)
     grid_u = find_nearest_altitude_idx(points)
+    grid_v = ((max_x - x) / (max_x - min_x) * size_v).long().clamp(0, size_v-1)
+
     device = points.device
     grid = torch.zeros((size_u, size_v), dtype=torch.float32, device=device)
     count = torch.zeros((size_u, size_v), dtype=torch.float32, device=device)
@@ -113,8 +109,9 @@ def get_image(bboxes, points, size_u = 64, size_v = 32):
         count[gu, gv] += 1
 
     grid = torch.where(count > 0, grid / count, torch.zeros_like(grid))/255
-    meany = -torch.where(count > 0, ydist / count, torch.zeros_like(grid))/40   ## 40으로 나눈건 데이터 정규화를 위해서. 포인트 범위는 0~-48까지이긴 하지만 40m 밖으로는 거의 없어서 이렇게 사용
+    meany = -torch.where(count > 0, ydist / count, torch.zeros_like(grid))/40   ## 정규화를 위해 40으로 나눔. 포인트 범위는 0~-48까지이긴 하지만 40m 밖으로 잡히는 경우는 거의 없음
     img = torch.stack([grid, meany, count], dim=0)                              ## shape : 3, size_u(=64), size_v(=32)
+
     return img.cuda()
 
 OmegaConf.register_new_resolver("sum", SumResolver, replace=True)
@@ -141,67 +138,51 @@ def main(cfg: DictConfig):
     checkpoint = torch.load(ckpt_path, weights_only=False, map_location=map_location)
     loaded_state_dict = checkpoint['state_dict']
     model.load_state_dict(loaded_state_dict, strict=False)
+    model.eval()
     print("Checkpoint loaded successfully.")
 
-    dataset = hydra.utils.instantiate(cfg.data.datamodule)
-    test_dataloader = dataset.test_dataloader("test1")
-    train_dataloader = dataset.train_dataloader()
-    mode = "train"
-    creating_dataloader = train_dataloader if "train" in mode else test_dataloader
+    classification_model = Classifier(in_channels=3, num_classes=9).to('cuda')
+    classification_checkpoint = torch.load('classfier_checkpoints/best_model.pth', map_location='cuda')
+    classification_model.load_state_dict(classification_checkpoint['model_state_dict'])
+    classification_model.eval()
 
-    version_description = "classification"
-    label_info_file_path = f"Dataset/{mode}_{version_description}.txt"
-    if os.path.exists(label_info_file_path):
-        print(f"{label_info_file_path} already exists. Do you want to erase this file? (y/n)")
+    #### check here
+    #### 여기를 pcd들 있는 폴더로 넣어주면 됨
+    '''
+    - pcd_dir_root
+        - 0.pcd
+        - 1.pcd
+        ...
+    '''
+    pcd_dir_root = '/path/to/pcd/dir'
+    if not os.path.exists(pcd_dir_root):
+        print(f'cannot find directory {pcd_dir_root}. please check "pcd_dir_root"')
+    pcd_file_list = sorted([x for x in os.listdir(pcd_dir_root) if x.endswith('.pcd')], key=lambda x:int(x.split('.')[0]))
+
+    for pcd_file_name in pcd_file_list:
+        pcd_file_path = os.path.join(pcd_dir_root, pcd_file_name)
+        
+        img = read_pcd(pcd_file_path)
+
+        point_cloud = torch.from_numpy(img)
+        output = model([point_cloud.cuda()], mode='test')[0]
+        bbox = output['final_bboxes'].cpu().detach().numpy()
+        score = output['final_scores'].cpu().detach().numpy()[0]
+
+        print(pcd_file_path)
+        # print(output)
+        # print(bbox, score)
+        img = get_image(bbox, point_cloud)
+
+        cv2.imwrite('test.png', (img.cpu().numpy()[0]*255).astype(np.uint8))
+
+        class_infer = classification_model(img[None, ...])[0]
+        # print(class_infer, torch.argmax(class_infer))
+        print("detected class : ", torch.argmax(class_infer).detach().cpu().numpy())
+
         a = input()
-        if a == 'y':
-            os.remove(label_info_file_path)
-    
-    database_dir = f"Dataset/{mode}/{version_description}"
-    os.makedirs(database_dir, exist_ok=True)
-
-    none_count = 0
-
-    for batch in tqdm(creating_dataloader, desc="Batches", unit="batch"):
-        point_clouds, boxes, labels, pcd_paths = batch
-        for (point_cloud, box, label, pcd_path) in tqdm(
-            zip(point_clouds, boxes, labels, pcd_paths),
-            total=len(point_clouds),
-            desc="Processing samples",
-            leave=False
-        ):  
-            if len(box) == 0 or len(box[0]) != 6:
-                gt_img = None
-                label_number = 8
-                none_count += 1
-                if none_count != 5:
-                    continue
-                else:
-                    none_count = 0
-            else:
-                gt_img = get_image(box, point_cloud, size_u=64)
-                label_number = label.item()
-
-            box = model([point_cloud.cuda()], mode='test')[0]["final_bboxes"]
-            inference_img = get_image(box.cpu(), point_cloud)
-
-            folder = os.path.basename(os.path.dirname(pcd_path))        # '20_binary'
-            filename = os.path.splitext(os.path.basename(pcd_path))[0]  # '144208_test_10605'
-
-            inference_img_path = f"{database_dir}/inference_{folder}_{filename}.npy"
-            inference_img = (inference_img.cpu().numpy()).astype(np.float32)
-            np.save(inference_img_path, inference_img)
-            with open(label_info_file_path, "a") as f:
-                f.write(f"{inference_img_path} {label_number}\n")
-
-            if gt_img is not None:
-                gt_img_path = f"{database_dir}/gt_{folder}_{filename}.npy"
-                gt_img = (gt_img.cpu().numpy()).astype(np.float32)
-                np.save(gt_img_path, gt_img)
-                with open(label_info_file_path, "a") as f:
-                    f.write(f"{gt_img_path} {label_number}\n")
-
-    print("DONE")
+        if a == 'c':
+            exit()
 
 if __name__ == '__main__':
     main()

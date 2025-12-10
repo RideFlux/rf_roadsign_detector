@@ -1,0 +1,5 @@
+## set data dir information
+
+dataset_root_dir: /media/jungirf/nia_0516/LIDAR_DATA2
+
+num_classes: 1

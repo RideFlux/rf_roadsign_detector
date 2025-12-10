@@ -7,7 +7,7 @@ from utils.sum_resolver import SumResolver
 
 OmegaConf.register_new_resolver("sum", SumResolver, replace=True)
 
-@hydra.main(version_base=None, config_path="configs", config_name="eval.yaml")
+@hydra.main(version_base=None, config_path="configs", config_name="eval_regression.yaml")
 def main(cfg: DictConfig):
     ckpt_path = cfg.eval_checkpoint
 

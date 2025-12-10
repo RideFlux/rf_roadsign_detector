@@ -187,11 +187,11 @@ def modify_onnx(onnx_simp,
     graph.outputs = [tmap['final_boxes'], tmap['final_labels'], tmap['final_scores']]
     graph.cleanup().toposort()
     onnx_final = gs.export_onnx(graph)
-    onnx.save(onnx_final, "final.onnx")
+    onnx.save(onnx_final, "final_regression.onnx")
     
     return onnx_final
 
-@hydra.main(version_base=None, config_path="configs", config_name="export.yaml")
+@hydra.main(version_base=None, config_path="configs", config_name="export_regression.yaml")
 def main(cfg: DictConfig):
     detector : nn.Module = hydra.utils.instantiate(cfg.model.roadsign_detector.module)
     checkpoint = torch.load(cfg.ckpt_path, weights_only=False)

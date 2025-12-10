@@ -118,6 +118,12 @@ class RoadSignDetectorModule(LightningModule):
 
         # 3. get top 1 score and its index across all classes
         scores, labels = bbox_cls_pred.max(dim=1)  # [N], [N]
+
+        ## 최대 output 개수 늘리는 테스트 코드
+        # topk = 5
+        # topk_scores, topk_indices = torch.topk(scores, topk)  # [topk]
+        # print("topk scores :", topk_scores)
+        # print("topk indices :", topk_indices)
         topk_scores, topk_indices = torch.topk(scores, 1)  # [1]
         
         # 4. gather top prediction

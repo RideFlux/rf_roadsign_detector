@@ -1,0 +1,26 @@
+defaults:
+  - _self_
+  - datasets: pcd_regression
+
+datamodule:
+  _target_: pcd.datamodule.RoadSignDataModule
+  _recursive_: False
+
+  data_processor:
+    _target_: pcd.data_processor_regression.DataProcessor
+    root_dir: ${data.datasets.dataset_root_dir}
+    pickle_files:
+      train: train_set_regression.pkl
+      val: val_set_regression.pkl
+      test1: test1_set_regression_test1.pkl
+      test2: test2_set_regression_test2.pkl
+      test3: test3_set_regression_test3.pkl
+      custom: custom_testset_regression.pkl
+    stride: 1
+  
+  dataset_class:
+    _target_: pcd.dataset.RoadSignDataset
+
+  batch_size: 16
+
+  num_workers: 16

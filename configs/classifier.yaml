@@ -1,0 +1,28 @@
+task_name: eval
+
+# eval_checkpoint: checkpoints/best.ckpt
+regression_checkpoint: checkpoints/best_regression.ckpt
+inference_img_path: test_infer.png
+detection_threshold: 0.5
+
+eval_mode: 0
+# 0: Choose options
+# 1: Visualize in bird's eye view
+# 2: Visualize in 3D point cloud
+# 3: Only quantitative evaluation mode
+
+defaults:
+  - _self_
+  - data: roadsign_data_classifier
+  - model: pointpillars
+  - callbacks: default
+  - logger: mlflow
+  - trainer: ddp
+  - paths: default
+  - override hydra/hydra_logging: disabled
+  - override hydra/job_logging: disabled
+
+hydra:  
+  output_subdir: null  
+  run:  
+    dir: .
