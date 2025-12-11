@@ -201,6 +201,61 @@ def main(cfg: DictConfig):
                 with open(label_info_file_path, "a") as f:
                     f.write(f"{gt_img_path} {label_number}\n")
 
+    mode = "test"
+    creating_dataloader = train_dataloader if "train" in mode else test_dataloader
+
+    version_description = "classification"
+    label_info_file_path = f"Dataset/{mode}_{version_description}.txt"
+    if os.path.exists(label_info_file_path):
+        print(f"{label_info_file_path} already exists. Do you want to erase this file? (y/n)")
+        a = input()
+        if a == 'y':
+            os.remove(label_info_file_path)
+    
+    database_dir = f"Dataset/{mode}/{version_description}"
+    os.makedirs(database_dir, exist_ok=True)
+
+    none_count = 0
+
+    for batch in tqdm(creating_dataloader, desc="Batches", unit="batch"):
+        point_clouds, boxes, labels, pcd_paths = batch
+        for (point_cloud, box, label, pcd_path) in tqdm(
+            zip(point_clouds, boxes, labels, pcd_paths),
+            total=len(point_clouds),
+            desc="Processing samples",
+            leave=False
+        ):  
+            if len(box) == 0 or len(box[0]) != 6:
+                gt_img = None
+                label_number = 8
+                none_count += 1
+                if none_count != 5:
+                    continue
+                else:
+                    none_count = 0
+            else:
+                gt_img = get_image(box, point_cloud, size_u=64)
+                label_number = label.item()
+
+            box = model([point_cloud.cuda()], mode='test')[0]["final_bboxes"]
+            inference_img = get_image(box.cpu(), point_cloud)
+
+            folder = os.path.basename(os.path.dirname(pcd_path))        # '20_binary'
+            filename = os.path.splitext(os.path.basename(pcd_path))[0]  # '144208_test_10605'
+
+            inference_img_path = f"{database_dir}/inference_{folder}_{filename}.npy"
+            inference_img = (inference_img.cpu().numpy()).astype(np.float32)
+            np.save(inference_img_path, inference_img)
+            with open(label_info_file_path, "a") as f:
+                f.write(f"{inference_img_path} {label_number}\n")
+
+            if gt_img is not None:
+                gt_img_path = f"{database_dir}/gt_{folder}_{filename}.npy"
+                gt_img = (gt_img.cpu().numpy()).astype(np.float32)
+                np.save(gt_img_path, gt_img)
+                with open(label_info_file_path, "a") as f:
+                    f.write(f"{gt_img_path} {label_number}\n")
+
     print("DONE")
 
 if __name__ == '__main__':

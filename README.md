@@ -154,6 +154,26 @@ python train.py
 
 이런 모양이 뜨면 성공이며, 학습 완료 후 체크포인트 파일은 `outputs/yyyy-MM-dd/HH-mm-ss/checkpoints/`에 저장되어 있습니다.
 
+#### 3-1. 개선 모델 학습
+표지판 구분력을 개선하기 위해 regression을 하는 모델과 classification을 하는 모델을 분리를 했습니다.
+regression 모델을 학습하기 위해서는 train_regression.py 코드를 이용하면됩니다.
+해당 모델의 경우는 구조는 기존과 동일하며 output만 class정보가 없이 유효한 대상 표지판이 있는지 여부를 내보내도록 변경했습니다.
+score가 threshold를 넘기면 해당 regression 정보가 유효한 것이고 그렇지 않다면 유효하지 않은 정보인 것입니다.
+
+classification 모델을 학습하기 위해서는 학습을 위한 데이터 사전 준비가 필요합니다.
+classification의 모델 input은 3channel의 64*32 size의 image가 사용됩니다.
+각 grid에는 정면에서 바라보고 사영시킨 형태의 정보가 들어있습니다.
+각 channel에는 intensity, y축(종방향)거리, point 개수 정보가 들어있습니다.
+
+이러한 이미지를 생성하기 위해서는 `generate_crop_box.py`를 실행시키면 됩니다.
+해당 코드를 실행시키기 위해서는 `collect_pcd_data.py`를 통해 생성된 pickle 파일이 필요하며 이렇게 만든 pkl 파일이 yaml 파일에 작성되어있어야합니다. `1. 학습데이터 만들기`의 내용을 수행하셨다면 수정 없이 진행이 가능합니다.
+
+이렇게 만들어진 데이터는 npy 형식으로 저장되며 `Dataset` 폴더에 저장됩니다.
+
+데이터가 만들어진 이후에는 `roadsign_classifier.py` 스크립트를 실행하면 classification 모델을 학습 할 수 있습니다.
+결과는 `classfier_checkpoints/best_model.pth`에 저장되며 저장경로는 편의에 따라 변경이 가능합니다.
+
+
 ## 모델 평가하기
 
 만약 새로 학습시킨 체크포인트를 평가하고 싶다면 [eval.yaml](./configs/eval.yaml)에서 아래와 같이 `outputs/yyyy-MM-dd/HH-mm-ss/checkpoints/epoch_***.ckpt`로 수정하면 됩니다.
@@ -253,6 +273,22 @@ list[{
 }]
 ```
 
+#### 개선 모델 평가하기
+
+개선 모델의 regression 성능 경우 `eval.py`를 통해 동일하게 평가를 할 수 있습니다.
+위의 내용들을 참고하여 동일하게 진행이 가능합니다.
+다만, class에 대한 평가는 불가능하기에 이 정보는 출력되지 않습니다.
+
+classification 모델에 대한 평가는 `roadsign_classifier_eval.py`를 통해 진행됩니다.
+기본적으로 confusion matrix를 출력하도록 되어있습니다.
+
+추가로 각 frame별 inference 결과를 확인하는 것은 `roadsign_classifier_infer_test.py`를 통해 가능합니다.
+pkl에 들어있는 데이터에 대한 classification inference 결과를 개별로 확인할 수 있습니다.
+
+이외에 pkl로 생성되지 않은 데이터에 대한 inference를 하기 위해서는 `roadsign_classifier_infer_custom_data.py`를 실행시키면 됩니다. 
+해당 코드에서 `pcd_dir_root` 변수를 확인하여 pcd 파일들이 들어있는 경로를 지정한 뒤 실행시키면 됩니다.
+
+
 ## ONNX, TensorRT 빌드
 
 ### 0. 환경 세팅
@@ -266,6 +302,10 @@ TensorRT의 버전을 반드시 8.5 (8.5.0.3)으로 맞추는 것이 제일 중�
 ```bash
 python export_pointpillars.py
 ```
+
+#### 개선 모델 onnx 생성
+
+개선 모델 onnx를 생성하기 위해서는 `roadsign_classifier_onnx.py`를 실행시키면 됩니다.
 
 ### 2. TensorRT Engine 추출
 
