@@ -39,8 +39,8 @@ class DataProcessor:
         label_data = data_item['label']
         reversed_flag = data_item['reversed']
         
-        # Read PCD file
-        img = read_pcd(pcd_path)
+        # # Read PCD file
+        # img = read_pcd(pcd_path)
         
         # Initialize empty arrays for the case when no labels exist
         gt_bboxes = np.zeros([0, 6], dtype=np.float32)
@@ -69,14 +69,14 @@ class DataProcessor:
                 
             except Exception as e:
                 print(f"Error processing label data {pcd_path}: {e}")
-                return (img, gt_bboxes, gt_cls)
+                return (pcd_path, gt_bboxes, gt_cls, reversed_flag)
         
         if len(gt_bboxes) > 0 and gt_bboxes[0][0] > 0:
-            # Rotate point cloud: (x, y) -> (y, -x)
-            img_rotated = img.copy()
-            img_rotated[:, 0] = img[:, 1]  # new x = old y
-            img_rotated[:, 1] = -img[:, 0]  # new y = -old x
-            img = img_rotated
+            # # Rotate point cloud: (x, y) -> (y, -x)
+            # img_rotated = img.copy()
+            # img_rotated[:, 0] = img[:, 1]  # new x = old y
+            # img_rotated[:, 1] = -img[:, 0]  # new y = -old x
+            # img = img_rotated
             
             # Rotate bounding boxes if they exist
             if len(gt_bboxes) > 0:
@@ -88,9 +88,9 @@ class DataProcessor:
                 gt_bboxes_rotated[:, 4] = gt_bboxes[:, 3]   # new l = old w
                 gt_bboxes = gt_bboxes_rotated
         
-        # Data augmentation: 전후 반전용
-        if reversed_flag:
-            img[:, 1] = -img[:, 1]
+        # # Data augmentation: 전후 반전용
+        # if reversed_flag:
+        #     img[:, 1] = -img[:, 1]
             
 
-        return (img, gt_bboxes, gt_cls)
+        return (pcd_path, gt_bboxes, gt_cls, reversed_flag)

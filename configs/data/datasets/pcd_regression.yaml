@@ -1,0 +1,3 @@
+dataset_root_dir: ${oc.env:ROADSIGN_DATA_ROOT,/media/jungirf/nia_0516/LIDAR_DATA2}
+
+num_classes: 1

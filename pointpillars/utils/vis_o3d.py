@@ -94,7 +94,7 @@ def vis_core(plys):
     finally:
         vis.destroy_window()
 
-def draw_bev(points, gt_box, box=None, gt_label=None, pred_label=None, mode=3, x_range=(-8, 0), y_range=(-48, 0), z_range=(-3, 1)):
+def draw_bev(points, gt_box, box=None, gt_label=None, pred_label=None, mode=3, x_range=(-8, 0), y_range=(-48, 0), z_range=(-3, 1), pred_score = None):
 
     # FV, BEV 크기
     w1, h1, w2, h2 = 640, 320, 1920, 320
@@ -119,9 +119,17 @@ def draw_bev(points, gt_box, box=None, gt_label=None, pred_label=None, mode=3, x
             & (y >= y_range[0]) & (y <= y_range[1]) \
             & (z >= z_range[0]) & (z <= z_range[1])
     
+    # Empty-GT frames use the regression candidate's depth for the front view.
+    # If both boxes are absent, display the full point cloud within the ranges.
+    depth_box = gt_box if gt_box is not None else box
+    depth_mask = np.ones(len(points), dtype=bool)
+    if depth_box is not None:
+        depth_mask = ((y <= depth_box[1] + depth_box[4]/2 + 0.5)
+                      & (y >= depth_box[1] - depth_box[4]/2 - 0.5))
+
     # Add bounds checking for pixel coordinates
     valid1 = valid & (px1 >= 40) & (px1 < 40 + w1) & (py1 >= 100) & (py1 < bev_img.shape[0] - 40) & option_1 \
-            & (y <= gt_box[1] + gt_box[4]/2 + 0.5) & (y >= gt_box[1] - gt_box[4]/2 - 0.5)
+            & depth_mask
     valid2 = valid & (px2 >= 40 + (w1 + 40) * option_1) & (px2 < bev_img.shape[1] - 40) & (py2 >= 100) & (py2 < bev_img.shape[0]-40) & option_2
     r = np.minimum(r * 20, 255)
     r_valid1 = r[valid1]
@@ -180,7 +188,10 @@ def draw_bev(points, gt_box, box=None, gt_label=None, pred_label=None, mode=3, x
     thickness = 1
     text_width, text_height = cv2.getTextSize(f'True Class: {gt_label+1}, Pred Class: {pred_label+1}', font, fontScale, thickness)[0]
     mid = (40 + (w1 + 40) * option_1 + (w2 + 40) * option_2) // 2
-    cv2.putText(bev_img, f'True Class: {gt_label+1}, Pred Class: {pred_label+1}', (mid-text_width//2, 50+text_height), font, fontScale, fontColor, thickness, cv2.LINE_AA)
+    text_content = f'True Class: {gt_label+1}, Pred Class: {pred_label+1}'
+    if pred_score is not None:
+        text_content = text_content + f', Pred Score: {pred_score:.3f}'
+    cv2.putText(bev_img, text_content, (mid-text_width//2, 50+text_height), font, fontScale, fontColor, thickness, cv2.LINE_AA)
 
     return bev_img
 

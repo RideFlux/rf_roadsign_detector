@@ -1,1 +1,2 @@
 from .data_processor import DataProcessor
+from .data_processor_regression import DataProcessor as RegressionDataProcessor

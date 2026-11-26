@@ -7,7 +7,7 @@ from utils.sum_resolver import SumResolver
 
 OmegaConf.register_new_resolver("sum", SumResolver, replace=True)
 
-@hydra.main(version_base=None, config_path="configs", config_name="eval.yaml")
+@hydra.main(version_base=None, config_path="configs", config_name="eval_regression.yaml")
 def main(cfg: DictConfig):
     ckpt_path = cfg.eval_checkpoint
 
@@ -45,7 +45,7 @@ def main(cfg: DictConfig):
         model.load_state_dict(loaded_state_dict, strict=False)
         print("Checkpoint loaded successfully.")
 
-        inference_test_imgs_qtt(model, cfg, eval_mode)
+        inference_test_imgs_qtt(model, cfg, eval_mode, testset_name=cfg.testset_name)
 
 if __name__ == '__main__':
     main()

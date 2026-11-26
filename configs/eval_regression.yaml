@@ -1,14 +1,17 @@
-task_name: crop_pcd
+task_name: eval
 
-checkpoint: checkpoints/best.ckpt
-cropped_pcd_save_dir_path: crop_test
+eval_checkpoint: checkpoints/best_regression_ver219.ckpt
+testset_name: test1
+inference_img_path: test_infer.png
 detection_threshold: 0.5
-selected_dataset: test3
-filter_loc_sign_only : False
+
+eval_mode: 0
+# 0: Choose options
+# 1: Front view, 2: BEV, 3: Front + BEV, 4: 3D, 5: Quantitative
 
 defaults:
   - _self_
-  - data: roadsign_data
+  - data: roadsign_data_regression
   - model: pointpillars
   - callbacks: default
   - logger: mlflow

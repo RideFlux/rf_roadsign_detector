@@ -1,6 +1,13 @@
 task_name: eval
 
-eval_checkpoint: checkpoints/best.ckpt
+# eval_checkpoint: checkpoints/best.ckpt
+# eval_checkpoint: outputs/2025-09-08/19-38-28/checkpoints/epoch_021.ckpt
+# eval_checkpoint: outputs/2025-09-08/20-11-07/checkpoints/epoch_018.ckpt
+# eval_checkpoint: outputs/2025-10-29/09-35-55/checkpoints/epoch_006.ckpt
+# eval_checkpoint: outputs/2025-10-29/14-54-47/checkpoints/epoch_032.ckpt
+# eval_checkpoint: outputs/2025-10-30/01-39-53/checkpoints/epoch_008.ckpt
+# eval_checkpoint: outputs/2025-10-30/17-22-55/checkpoints/epoch_025.ckpt
+eval_checkpoint: outputs/2025-10-30/20-17-39/checkpoints/epoch_011.ckpt
 inference_img_path: test_infer.png
 detection_threshold: 0.5
 
