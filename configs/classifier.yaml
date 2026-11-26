@@ -1,7 +1,7 @@
 task_name: eval
 
-# eval_checkpoint: checkpoints/best.ckpt
-regression_checkpoint: checkpoints/best_regression.ckpt
+regression_checkpoint: checkpoints/best_regression_ver219.ckpt
+crop_version: classification_261112
 inference_img_path: test_infer.png
 detection_threshold: 0.5
 

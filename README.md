@@ -1,332 +1,281 @@
 # Roadsign Detector
 
-> 모델 논문: [PointPillars: Fast Encoders for Object Detection from Point Clouds](https://openaccess.thecvf.com/content_CVPR_2019/papers/Lang_PointPillars_Fast_Encoders_for_Object_Detection_From_Point_Clouds_CVPR_2019_paper.pdf)
+LiDAR PCD에서 표지판의 박스와 클래스를 추론합니다. 현재 모델은 회귀 모델과 분류 모델을 순서대로 실행하는 2단계 구조입니다.
 
-## 개발 환경
+```text
+PCD (x, y, z, intensity)
+  → PointPillars: 박스와 검출 점수
+  → 예측 박스로 3 × 64 × 32 crop 생성
+  → Classifier: 클래스 0~7 또는 8 (No object)
+```
 
-아래 환경은 개발에 사용한 환경이며, 필수적인 환경은 아닙니다. 모델 학습 시에는 적당한 버전의 Python과 CUDA 코드를 돌릴 수 있는 GPU, 모델 평가 시에는 Python만 있어도 됩니다.
+PointPillars 논문: [PointPillars: Fast Encoders for Object Detection from Point Clouds](https://openaccess.thecvf.com/content_CVPR_2019/papers/Lang_PointPillars_Fast_Encoders_for_Object_Detection_From_Point_Clouds_CVPR_2019_paper.pdf)
 
-- Ubuntu 20.04.6 LTS (64-bit)
-- 12th Gen Intel® Core™ i7-12700 × 20
-- NVIDIA GeForce RTX 3070/PCIe/SSE2
-- Python 3.8.20
-- CUDA 12.8
+## 최종 모델
 
-## 학습/평가 전 준비 과정
+| 모델 | 체크포인트 | 용도 |
+|---|---|---|
+| Regression ver219 | `checkpoints/best_regression_ver219.ckpt` | 박스 회귀와 표지판 검출 |
+| Classification 261112 | `classifier_261112_checkpoints/best_model.pth` | 8개 객체 클래스와 No object 분류 |
 
-### 1. 필수 패키지 설치
+회귀 체크포인트는 `outputs/2026-11-19/16-00-58/checkpoints/epoch_012.ckpt`의 복사본입니다.
+분류 체크포인트는 `261112` 학습의 best 모델입니다. 기본 crop 생성, 회귀 평가, 통합 평가, export 설정은 위 체크포인트를 사용합니다.
 
-> [Anaconda](https://www.anaconda.com/docs/getting-started/anaconda/install)와 같은 가상환경 도구를 사용하는 것을 추천합니다.
+이번 버전에 추가하는 모델 파일은 위 두 개입니다. 과거 버전의 체크포인트와 ONNX/TensorRT 파일을 로컬에서 생성해도 새로 Git에 포함되지 않도록 `.gitignore`에 설정했습니다. 기존 커밋에 포함된 과거 모델은 유지합니다.
+
+## 개발 환경과 설치
+
+개발에 사용한 주요 환경은 다음과 같습니다. 전체 패키지 목록은 [requirements.txt](requirements.txt)에 있습니다.
+
+- Ubuntu 20.04, Python 3.8.20
+- PyTorch 2.4.1, Lightning 2.4.0, Hydra 1.3.2
+- spconv 2.3.6, OpenCV, Open3D, Matplotlib
 
 ```bash
 pip install -r requirements.txt
+python -c "import torch, hydra, lightning, spconv; print(torch.__version__); print('CUDA:', torch.cuda.is_available())"
 ```
 
-아래 코드를 가상환경 터미널에 붙여넣기를 해 설치 여부를 확인하실 수 있습니다.
+학습에는 GPU를 사용합니다. 통합 평가와 crop 생성, 분류 평가는 GPU가 없으면 CPU로 실행할 수 있습니다. spconv 등 모델 의존 패키지는 CPU 평가에서도 필요합니다.
+모든 명령은 저장소 루트에서 실행합니다.
+
+## 주요 파일
+
+| 파일 | 역할 |
+|---|---|
+| `generate_roadsign_label_from_rf_bbox_label.py` | RF 박스 라벨 변환 및 PCD 복사 |
+| `collect_pcd_data.py` | PCD와 라벨을 train/val/test PKL로 수집 |
+| `train_regression.py` | 회귀 모델 학습 |
+| `generate_crop_box.py` | 분류 학습용 GT crop과 예측 crop 생성 |
+| `roadsign_classifier.py` | 분류 모델 정의 및 학습 |
+| `eval_two_stage.py` | PCD에서 두 모델을 순서대로 실행해 통합 평가 |
+| `roadsign_classifier_eval.py` | 저장된 crop으로 분류 모델만 평가 |
+| `eval.py` | 회귀 모델만 평가 |
+| `evaluation/roadsign_crop.py` | crop 생성과 통합 평가가 공유하는 투영 함수 |
+| `evaluation/plots.py` | 혼동행렬 이미지 저장 |
+
+## 데이터 준비
+
+### 데이터 루트
+
+PCD와 같은 이름의 TXT 라벨이 같은 폴더에 있어야 합니다. 데이터와 생성된 PKL, crop은 Git에 포함하지 않습니다.
+
+```text
+LIDAR_DATA2/
+├── data261112/
+│   └── scene_name/
+│       ├── 0.pcd
+│       ├── 0.txt
+│       └── ...
+├── train_set_regression_261112.pkl
+├── val_set_regression_261112.pkl
+└── test1_set_regression_test1_261112.pkl
+```
+
+데이터 루트는 환경변수로 지정할 수 있습니다. `collect_pcd_data.py`와 회귀·분류용 Hydra 데이터 설정에 함께 적용됩니다.
 
 ```bash
-python -c "import pytorch_lightning as pl, torch, hydra, rootutils, rich, tensorboard, spconv, cv2, matplotlib, numba, open3d as o3d, onnx, onnxruntime as ort, onnxsim, onnx_graphsurgeon as gs; print(f'PyTorch Lightning: {pl.__version__} \nPyTorch: {torch.__version__} \nCUDA available: {torch.cuda.is_available()} \nHydra: {hydra.__version__} \ntensorboard: {tensorboard.__version__} \nspconv: {spconv.__version__} \nOpenCV: {cv2.__version__} \nmatplotlib: {matplotlib.__version__} \nnumba: {numba.__version__} \nopen3d: {o3d.__version__} \nonnx: {onnx.__version__} \nonnxruntime: {ort.__version__} \nonnxsim: {onnxsim.__version__} \nonnx_graphsurgeon: {gs.__version__}')"
+export ROADSIGN_DATA_ROOT=/absolute/path/to/LIDAR_DATA2
 ```
 
-아래처럼 각 모듈의 버전이 정상적으로 나온다면 성공입니다. (버전이 조금씩 다르더라도 괜찮습니다.)
+환경변수를 지정하지 않으면 기존 개발 경로 `/media/jungirf/nia_0516/LIDAR_DATA2`를 사용합니다.
+Hydra를 사용하는 명령에서는 `data.datasets.dataset_root_dir=/absolute/path` 옵션으로도 변경할 수 있습니다.
 
-```
-PyTorch Lightning: 2.4.0 
-PyTorch: 2.4.1+cu121 
-CUDA available: True 
-Hydra: 1.3.2 
-tensorboard: 2.14.0 
-spconv: 2.3.6 
-OpenCV: 4.5.5 
-matplotlib: 3.6.3 
-numba: 0.58.1 
-open3d: 0.14.1 
-onnx: 1.17.0 
-onnxruntime: 1.19.2 
-onnxsim: 0.4.36 
-onnx_graphsurgeon: 0.5.8
+### RF 라벨 변환
+
+RF TXT의 `class cx cy cz dx dy dz ...`를 클래스와 8개 꼭짓점 좌표로 변환합니다.
+원본 PCD는 `<data-root>/<scene>/<sensor>/pcd/<번호>.pcd`에서 찾습니다.
+
+```bash
+python generate_roadsign_label_from_rf_bbox_label.py \
+  --label-root /absolute/path/to/rf_labels/pandar64_0 \
+  --data-root /absolute/path/to/roadsign_261112 \
+  --output-root "$ROADSIGN_DATA_ROOT/data261112" \
+  --scene-date 2026-11-12
 ```
 
-> CUDA available이 False라면 모델 평가만 진행할 수 있습니다.
+변환된 라벨은 한 줄에 `class,x1,y1,z1,...,x8,y8,z8`의 25개 값을 저장하며, 라벨이 없으면 빈 TXT로 남습니다. 현재 데이터 처리 코드는 프레임당 첫 번째 라벨을 사용합니다.
 
-## 모델 학습하기
-
-> 모델 학습을 새로하지 않고, 보유한 체크포인트 파일이 있다면 바로 평가하기를 진행할 수 있습니다. `checkpoints/best.ckpt`에 가장 결과가 잘 나왔던 체크포인트를 저장해두었습니다.
-
-### 1. 학습데이터 만들기
-
-아래처럼 dataset이 있다고 가정합니다. `.pcd` 파일과, 라벨 데이터 파일 (`.txt`)이 같은 폴더에 들어있는 환경을 가정하고 있습니다.
-
-```
-/home/rideflux/LIDAR_DATA
-├── 10_binary
-│   ├── 123_1.1m.pcd
-│   ├── 123_1.1m.txt
-│   └── ...
-├── 11_binary
-│   ├── 123_1.1m.pcd
-│   ├── 123_1.1m.txt
-│   └── ... 
-├── 12_binary
-│   ├── 123_1.1m.pcd
-│   ├── 123_1.1m.txt
-│   └── ... 
-```
-
-라벨 데이터의 구성은 다음 그림을 따릅니다.
-
-![alt text](figures/label_format.png)
-
-
-[collect_pcd_data.py](./collect_pcd_data.py)를 수정하여 데이터셋이 있는 폴더를 지정합니다. 본 스크립트는 해당 폴더 하위(중첩 폴더 포함)의 모든 `.pcd` 파일을 수집하므로, 최상단의 폴더 이름으로 수정하면 됩니다. 
-
-위 예시 기준으로는 아래와 같이 수정하시면 됩니다.
-```py
-# collect_pcd_data.py
-root_dir = '/home/rideflux/LIDAR_DATA'
-...
-```
-
-> `~`(Home 디렉터리)는 사용할 수 없으므로, 해당 데이터 폴더의 전체 절대경로를 입력해 주셔야 합니다.
-
-수정 후 다음을 실행합니다.
+### PKL 생성
 
 ```bash
 python collect_pcd_data.py
 ```
 
-실행 후 지정한 폴더 아래에 
+| PKL | 구성 |
+|---|---|
+| `train_set_regression_261112.pkl` | 학습 프레임 |
+| `val_set_regression_261112.pkl` | 검증 프레임 |
+| `test1_set_regression_test1_261112.pkl` | val과 같은 프레임 |
+| `test2_set_regression_test2_261112.pkl` | 현재 추가 샘플링이 없어 val과 같은 프레임 |
+| `test3_set_regression_test3_261112.pkl` | `data261112`에 속한 검증 프레임 |
 
-- `train_set.pkl` : 표지판 데이터 전체의 80% + 표지판 데이터 전후반전 10% + FP 데이터 10%의 80% 
-- `val_set.pkl` : 표지판 데이터 전체의 20% + 표지판 데이터 전후반전 10% + FP 데이터 10%의 20%
-- `test1_set.pkl` : val_set.pkl과 동일
-- `test2_set.pkl` : 표지판 데이터 전체의 20% + 표지판 데이터 전후반전 20% + FP 데이터 10%의 20%
-- `test3_set.pkl` : 표지판 데이터 전체의 20% + 표지판 데이터 전후반전 10% + 모든 FP 데이터
+`data261112`는 장면별로 TXT를 숫자순으로 정렬한 뒤 빈 라벨도 포함해 매 5번째 프레임을 val에, 나머지를 train에 넣습니다. 빈 라벨은 `label=None`으로 저장하며 `fp_paths`의 무작위 샘플링에 넣지 않습니다.
+다른 날짜 데이터의 분할은 기존 규칙을 유지합니다. `fp_paths`는 전체 후보의 50%를 무작위 선택한 뒤 train/val에 8:2로 나눕니다. 따라서 PKL을 다시 만들면 이 후보들의 구성이 달라질 수 있습니다.
 
-와 같은 파일들이 생겼다면 성공입니다.
+분류용 데이터 처리기는 클래스 번호를 보존합니다. `data261112`의 클래스는 PKL 저장 시 +1, 로딩 시 -1하여 최종적으로 TXT의 0~7 번호를 유지합니다. 회귀용 처리기는 모든 객체를 클래스 0으로 읽습니다.
 
-```
-/home/rideflux/LIDAR_DATA
-├── 10_binary
-│   ├── 123_1.1m.pcd
-│   └── ... 
-├── 11_binary
-│   ├── 123_1.1m.pcd
-│   └── ... 
-├── 12_binary
-│   ├── 123_1.1m.pcd
-│   └── ... 
-├── train_set.pkl
-├── val_set.pkl
-├── test1_set.pkl
-├── test2_set.pkl
-└── test3_set.pkl
-```
+## 모델 학습
 
-### 2. config 수정하기
-
-다음으로, [pcd.yaml](./configs/data/datasets/pcd.yaml)을 수정합니다. 
-
-학습데이터 만들기에서 사용한 폴더명을 그대로 사용하시면 됩니다.
-
-```yaml
-dataset_root_dir: /home/rideflux/LIDAR_DATA
-```
-
-### 3. 학습하기
-
-아래 명령을 입력하여 학습을 시작합니다.
+### 1. 회귀 모델
 
 ```bash
-python train.py
+python train_regression.py
 ```
 
-기본적으로 epoch은 총 500번 돌게 되어있으며, 최소 20번의 epoch 실행 후 더 이상 성능 개선이 이뤄지지 않는다면 멈추게 되어있습니다. (제공해 주신 데이터 기준으로 약 22번 실행 후 종료되었습니다.)
+설정은 [configs/train_regression.yaml](configs/train_regression.yaml)과 [configs/data/roadsign_data_regression.yaml](configs/data/roadsign_data_regression.yaml)을 사용합니다.
+기본 batch size는 16이며, 최대 500 epoch, 최소 20 epoch 이후 early stopping을 적용합니다.
+학습 체크포인트는 `outputs/<날짜>/<시간>/checkpoints/`에 저장됩니다.
 
-> Processing train data <span style="color:#f92672;">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</span> 100% 0:00:10  
-> train dataset size : 9078  
-> Processing val data <span style="color:#f92672;">━━━━━━━━━━━━━━━━━━━━━━━━━━━━╸</span>━━━━━━━━━━━  72% 0:00:01
+### 2. 분류용 crop 생성
 
-
-위 과정이 종료된 후, 
-
-> Epoch 0/499 <span style="color:#6022DB;">━━</span>╺━━━━━━━━━━━━━━━━━━━━━ 48/568 0:00:21 • 0:03:55 2.21it/s
-
-이런 모양이 뜨면 성공이며, 학습 완료 후 체크포인트 파일은 `outputs/yyyy-MM-dd/HH-mm-ss/checkpoints/`에 저장되어 있습니다.
-
-#### 3-1. 개선 모델 학습
-표지판 구분력을 개선하기 위해 regression을 하는 모델과 classification을 하는 모델을 분리를 했습니다.
-regression 모델을 학습하기 위해서는 train_regression.py 코드를 이용하면됩니다.
-해당 모델의 경우는 구조는 기존과 동일하며 output만 class정보가 없이 유효한 대상 표지판이 있는지 여부를 내보내도록 변경했습니다.
-score가 threshold를 넘기면 해당 regression 정보가 유효한 것이고 그렇지 않다면 유효하지 않은 정보인 것입니다.
-
-classification 모델을 학습하기 위해서는 학습을 위한 데이터 사전 준비가 필요합니다.
-classification의 모델 input은 3channel의 64*32 size의 image가 사용됩니다.
-각 grid에는 정면에서 바라보고 사영시킨 형태의 정보가 들어있습니다.
-각 channel에는 intensity, y축(종방향)거리, point 개수 정보가 들어있습니다.
-
-이러한 이미지를 생성하기 위해서는 `generate_crop_box.py`를 실행시키면 됩니다.
-해당 코드를 실행시키기 위해서는 `collect_pcd_data.py`를 통해 생성된 pickle 파일이 필요하며 이렇게 만든 pkl 파일이 yaml 파일에 작성되어있어야합니다. `1. 학습데이터 만들기`의 내용을 수행하셨다면 수정 없이 진행이 가능합니다.
-
-이렇게 만들어진 데이터는 npy 형식으로 저장되며 `Dataset` 폴더에 저장됩니다.
-
-데이터가 만들어진 이후에는 `roadsign_classifier.py` 스크립트를 실행하면 classification 모델을 학습 할 수 있습니다.
-결과는 `classfier_checkpoints/best_model.pth`에 저장되며 저장경로는 편의에 따라 변경이 가능합니다.
-
-
-## 모델 평가하기
-
-만약 새로 학습시킨 체크포인트를 평가하고 싶다면 [eval.yaml](./configs/eval.yaml)에서 아래와 같이 `outputs/yyyy-MM-dd/HH-mm-ss/checkpoints/epoch_***.ckpt`로 수정하면 됩니다.
-
-```yaml
-eval_checkpoint: /home/rideflux/roadsign-detector/outputs/2025-07-31/19-42-26/checkpoints/epoch_017.ckpt
+```bash
+python generate_crop_box.py
 ```
 
-수정한 뒤 `eval.py`를 실행합니다.
+[configs/classifier.yaml](configs/classifier.yaml)의 `regression_checkpoint`로 예측 박스를 생성합니다. 새 회귀 모델로 다시 학습할 경우 이 경로를 해당 체크포인트로 지정합니다.
 
-```py
-python eval.py
+```bash
+python generate_crop_box.py regression_checkpoint=outputs/<날짜>/<시간>/checkpoints/epoch_012.ckpt
 ```
 
-아래와 같은 글씨가 떴다면 원하는 모드를 선택하여 실행합니다.
+객체가 있는 프레임은 GT 박스와 예측 박스로 만든 crop을 모두 저장합니다. 빈 라벨은 5개 중 1개의 예측 crop을 클래스 8로 저장합니다. 이 crop 샘플링은 PKL 분할과 별개입니다.
+기존 라벨 목록이 있으면 교체 여부를 확인하며, `y`를 입력하지 않으면 기존 목록을 유지하고 종료합니다.
 
-```
-평가 모드를 선택해 주세요
-1. 전방 view & Bird's eye view로 시각화하기
-2. 3D로 시각화하기
-3. 정량 평가만 진행하기
-
-1/2/3 중 하나 입력: 
-```
-
-### 1. 전방 view & Bird's eye view로 시각화하기
-
-`Inference Image (ctrl + click)`
-
-평가 모드 선택 후 등장하는 위 텍스트에 마우스를 대고 컨트롤 + 클릭을 하면 아래와 같은 이미지를 볼 수 있습니다. (직접 [test_infer.png](test_infer.png)를 켜고 보셔도 무방합니다)
-
-![alt text](figures/test_infer.png)
-
-노란색 색칠된 사각형은 차량의 위치와 바라보는 방향을 의미합니다.
-빨간 사각형이 실제 박스의 위치이고, 파란 사각형이 추론을 통해 얻어낸 박스의 위치입니다. 엔터를 누를 때마다 다음 프레임으로 넘어가게 됩니다.
-
-Ctrl+C 를 눌러 프로그램을 중단할 수 있습니다.
-
-### 2. 3D로 시각화하기
-
-2번을 선택하면 테스트데이터 로딩 후 자동으로 3d 화면이 뜨게 됩니다. 
-
-편의상 일정 반사율 이상의 점만 표시하였고, 마우스 좌클릭-드래그와 휠클릭-드래그로 이동하며 보실 수 있습니다.
-
-**q**를 눌러 화면을 닫을 수 있고, 엔터를 눌러 다음 프레임으로 넘어갈 수 있습니다.
-
-Ctrl+C 를 눌러 프로그램을 중단할 수 있습니다.
-
-### 3. 정량 평가만 진행하기
-
-3번을 선택하면 사용자와의 상호작용 없이 테스트셋을 모두 평가합니다.
-
-그 결과로 다음 세 개의 그래프가 생성되게 됩니다.
-
-#### Confusion Matrix(혼동 행렬)
-
-![alt text](figures/confusion_matrix.png)
-
-x축이 추론한 클래스이고, y축이 실제 클래스입니다.
-
-각 숫자는 실제 클래스가 Class_y일 때 Class_x로 추론한 개수를 나타내며, 대각선에 밀집해 분포할수록 정확도가 높은 모델입니다.
-
-#### Distance Histogram
-
-![alt text](figures/distance_histogram.png)
-
-이 그래프는 실제 박스의 중심 위치와, 추론을 통해 얻어낸 박스의 중심위치가 얼마나 떨어져 있는지를 의미합니다.
-
-더 왼쪽으로 치우쳐 있을수록, x축의 단위가 작을수록 좋은 모델입니다.
-
-#### Score Histogram
-
-![alt text](figures/score_histogram.png)
-
-본 모델은 일정 이하의 score라면 화면상에 객체가 없다고 판단합니다.
-
-따라서, 실제로 객체가 없는 데이터가 테스트셋에 있을 때, score를 최대한 작게, 실제 객체가 있다면 최대한 크게 하는 것이 유리합니다. 
-
-Score Histogram은 이 분포를 나타내주며, 양쪽에 치우쳐 있을수록, 두 봉우리의 경계가 명확할수록 좋은 모델입니다.
-
-## 4. 모델 입출력
-
-| 분류 | 이름 | 타입 | 설명 |
-|-----|-----|------|----|
-| Input | `batched_pts` | `list[tensor]` | pcd 데이터, dynamic 가능, 텐서 shape는 (각 프레임의 point 수, 4) |
-| Output | `final_boxes` | `float32[1, 6]` |  최종 박스의 $(x,y,z,w,l,h)$ |
-| Output | `final_labels` | `int32[1]` | 최종 박스의 클래스, 0 based |
-| Output | `final_scores` | `float32[1]` | 최종 박스의 confidence score로, 0.5 미만이면 표지판이 없는 것으로 간주 |
-
-> Output은 python dictionary 형태로, 아래와 같이 반환됩니다. 가장 바깥쪽 `list`는 배치 내 프레임 별 결과를 갖고 있습니다.
-
-```py
-list[{
-    'final_bboxes': (1, 6),
-    'final_labels': (1, ),
-    'final_scores': (1, )
-}]
+```text
+Dataset/
+├── train/classification_261112/*.npy
+├── test/classification_261112/*.npy
+├── train_classification_261112.txt
+└── test_classification_261112.txt
 ```
 
-#### 개선 모델 평가하기
+crop은 `float32[3, 64, 32]`이며 채널은 평균 intensity/255, 평균 -y/40, 포인트 개수입니다.
+예측 박스의 x 폭은 1.2배, y 범위는 중심 ±1 m를 사용합니다. z로 포인트를 자르지 않습니다.
+선택한 포인트가 50개 미만 또는 50,000개 초과이면 0으로 채운 crop을 사용합니다.
 
-개선 모델의 regression 성능 경우 `eval.py`를 통해 동일하게 평가를 할 수 있습니다.
-위의 내용들을 참고하여 동일하게 진행이 가능합니다.
-다만, class에 대한 평가는 불가능하기에 이 정보는 출력되지 않습니다.
+### 3. 분류 모델
 
-classification 모델에 대한 평가는 `roadsign_classifier_eval.py`를 통해 진행됩니다.
-기본적으로 confusion matrix를 출력하도록 되어있습니다.
+```bash
+python roadsign_classifier.py
+```
 
-추가로 각 frame별 inference 결과를 확인하는 것은 `roadsign_classifier_infer_test.py`를 통해 가능합니다.
-pkl에 들어있는 데이터에 대한 classification inference 결과를 개별로 확인할 수 있습니다.
+`Dataset/train_classification_261112.txt`와 `Dataset/test_classification_261112.txt`를 읽습니다.
+기본 batch size는 32, 최대 200 epoch이며 검증 정확도가 가장 높은 모델을 `classifier_261112_checkpoints/best_model.pth`에 저장합니다.
 
-이외에 pkl로 생성되지 않은 데이터에 대한 inference를 하기 위해서는 `roadsign_classifier_infer_custom_data.py`를 실행시키면 됩니다. 
-해당 코드에서 `pcd_dir_root` 변수를 확인하여 pcd 파일들이 들어있는 경로를 지정한 뒤 실행시키면 됩니다.
+## 통합 평가
 
+```bash
+python eval_two_stage.py
+```
 
-## ONNX, TensorRT 빌드
+실행 시 다음 모드 중 하나를 선택합니다.
 
-### 0. 환경 세팅
+```text
+1. 전방 + BEV로 시각화하기
+2. 정량 평가만 진행하기
+```
 
-TensorRT의 버전을 반드시 8.5 (8.5.0.3)으로 맞추는 것이 제일 중요합니다. NVIDIA의 공식 도커 컨테이너를 사용하여 설정하는 것을 추천합니다.
+선택 메뉴를 생략하려면 `eval_mode`를 지정합니다.
 
-개발 시에는 [NVIDIA NGC Catalog](https://catalog.ngc.nvidia.com/orgs/nvidia/containers/tensorrt/tags)의 `23.03-py3`(nvcr.io/nvidia/tensorrt:23.03-py3)을 사용하였습니다.
+```bash
+python eval_two_stage.py eval_mode=1 testset_name=test3
+python eval_two_stage.py eval_mode=2 testset_name=test1
+python eval_two_stage.py eval_mode=2 testset_name=val max_samples=32
+```
 
-### 1. ONNX 생성
+설정 파일은 [configs/eval_two_stage.yaml](configs/eval_two_stage.yaml)입니다.
+
+| 설정 | 기본값 / 의미 |
+|---|---|
+| `testset_name` | `test1`; `val`, `test2`, `test3`, `custom`도 선택 가능 |
+| `regression_checkpoint` | `checkpoints/best_regression_ver219.ckpt` |
+| `classification_checkpoint` | `classifier_261112_checkpoints/best_model.pth` |
+| `detection_threshold` | 0.5; 점수가 이 값 이하면 No object |
+| `distance_threshold` | 0.1 m; 박스 중심 오차 허용값 |
+| `device` | `auto`; `cpu`, `cuda`, `cuda:0`도 지정 가능 |
+| `max_samples` | `null`; 지정하면 해당 개수까지만 평가 |
+| `data.datamodule.num_workers` | 16; 단일 프로세스 로딩은 0 |
+
+통합 평가는 PCD마다 회귀 모델의 **예측 박스**로 crop을 만들어 분류합니다. GT crop이나 빈 라벨 샘플링을 사용하지 않으며, 선택한 PKL 항목을 모두 평가합니다.
+회귀 점수가 기준 이하이면 분류 모델을 실행하지 않고 최종 클래스를 8로 정합니다. 분류 모델도 클래스 8을 예측할 수 있습니다.
+
+### 시각화
+
+1번 모드에서는 터미널의 이미지 링크로 `test_infer.png`를 열어 전방·BEV를 확인합니다.
+GT 박스는 빨강, 회귀 후보 박스는 청록으로 표시하며, 최종 클래스와 두 모델의 점수도 표시합니다.
+
+- Enter: 다음 프레임
+- 숫자 N: 다음 N개 프레임의 시각화만 생략하고 평가 계속
+- `c` 또는 `q`: 현재 프레임까지의 결과를 저장하고 종료
+
+기본 이미지 경로는 실행마다 생성되는 결과 폴더 안에 있습니다. 같은 VS Code 탭을 계속 사용하려면 고정 경로를 지정합니다.
+
+```bash
+python eval_two_stage.py eval_mode=1 inference_img_path=test_infer.png
+```
+
+### 저장되는 결과와 지표
+
+두 모드 모두 `evaluation_results/two_stage/<날짜_시간>/`에 다음 파일을 저장합니다.
+
+| 파일 | 내용 |
+|---|---|
+| `metrics.json` | 검출·위치·분류·통합 지표, 클래스별 지표와 실행 설정 |
+| `predictions.csv` | PCD별 GT/예측 클래스, 박스, 점수와 중심 오차 |
+| `confusion_matrix.png` | 9클래스 혼동행렬; 행=GT, 열=예측 |
+| `test_infer.png` | 시각화 모드에서 마지막으로 확인한 프레임 |
+
+회귀 검출 precision/recall은 범위 안 GT 객체의 존재 여부와 점수 기준으로 계산하며, 위치 정확도는 별도로 집계합니다.
+중심 오차는 `(cx, cy)` 사이의 2차원 거리입니다. 박스 중심에 반크기를 더하는 기존 `evaluation.utils.compute_distance`와 계산 방식이 다릅니다.
+GT 중심이 설정된 x/y 평가 범위 밖에 있으면 No object로 취급합니다.
+통합 정답은 객체의 검출·클래스·위치를 모두 맞힌 경우, 또는 No object를 최종적으로 올바르게 예측한 경우입니다.
+Macro F1은 GT 또는 예측에 등장한 클래스의 평균이며, 전체 9클래스 평균도 `macro_f1_all_classes`로 저장합니다.
+시각화를 중간에 종료한 경우 지표는 해당 시점까지 처리한 프레임에 대한 값입니다.
+
+## 개별 모델 평가
+
+회귀 모델만 평가하려면 다음을 실행합니다. 데이터 선택과 체크포인트는 [configs/eval_regression.yaml](configs/eval_regression.yaml)에서 변경할 수 있습니다.
+
+```bash
+python eval.py eval_mode=5 testset_name=test1
+```
+
+저장된 crop으로 분류 모델만 평가하려면 다음을 실행합니다.
+
+```bash
+python roadsign_classifier_eval.py
+python roadsign_classifier_eval.py --device cpu --output evaluation_results/classifier/confusion_matrix.png
+```
+
+`--checkpoint`, `--labels`, `--batch-size`도 지정할 수 있습니다.
+이 평가는 라벨 목록에 저장된 GT crop과 예측 crop을 사용하므로, PCD 전체를 처리하는 통합 평가와 평가 대상이 다릅니다.
+
+## ONNX / TensorRT
+
+회귀 모델과 분류 모델은 각각 export합니다.
 
 ```bash
 python export_pointpillars.py
+python roadsign_classifier_onnx.py
 ```
 
-#### 개선 모델 onnx 생성
+회귀 모델은 [configs/export_regression.yaml](configs/export_regression.yaml)의 최종 체크포인트를 읽어 `final_regression_ver219.onnx`를 생성합니다. GPU와 ONNX graph plugin 구성에 필요한 패키지가 필요합니다.
+분류 모델은 `roadsign_classifier_ver219.onnx`를 생성하며, `--checkpoint`와 `--output`으로 경로를 변경할 수 있습니다.
+TensorRT plugin을 포함한 배포 환경에서 회귀 ONNX를 빌드해야 합니다. 기존 TensorRT 8.5 개발 환경과 plugin 코드는 `tensorrt/`를 참고합니다.
+생성한 ONNX, TensorRT engine은 이번 체크포인트 업로드 대상에 포함하지 않습니다.
 
-개선 모델 onnx를 생성하기 위해서는 `roadsign_classifier_onnx.py`를 실행시키면 됩니다.
-
-### 2. TensorRT Engine 추출
+## 테스트
 
 ```bash
-trtexec --onnx=final.onnx --saveEngine=final.trt
+python -m unittest discover -s tests -v
 ```
 
-### 3. trt 파일 테스트
+테스트는 GPU나 실제 데이터셋 없이 crop 투영, 분할 규칙, 최종 클래스 전달, 점수 기준 처리, 마지막 배치, 시각화 종료와 결과 파일 생성을 확인합니다.
+실제 데이터로 짧게 확인하려면 다음을 실행합니다.
 
 ```bash
-python tensorrt/trt_inference.py
-python tensorrt/trt_time_eval.py
+python eval_two_stage.py eval_mode=2 testset_name=test3 max_samples=16 device=cpu data.datamodule.num_workers=0
 ```
 
-### 4. trt 입출력
-
-| 분류 | 이름 | 타입 | 설명 |
-|-----|-----|------|----|
-| Input | `points` | `float32[1, 200000, 4]` | pcd 데이터, 200000은 static이지만, 수정 가능. <br/>이 크기에 맞게 입력 데이터를 slice 또는 zero padding 해줘야 함 |
-| Input | `num_points` | `int32[1]` | `points`에서 어디까지가 유효한 데이터인지 나타냄 |
-| Output | `final_boxes` | `float32[1, 6]` |  최종 박스의 $(x,y,z,w,l,h)$ |
-| Output | `final_labels` | `int32[1]` | 최종 박스의 클래스, 0 based |
-| Output | `final_scores` | `float32[1]` | 최종 박스의 confidence score로, 0.5 미만이면 표지판이 없는 것으로 간주 |
-
+기존 단일 모델 학습(`train.py`)과 과거 실험용 추론 스크립트는 유지하며, 현재 2단계 모델의 기본 진입점은 위 표의 파일을 사용합니다.

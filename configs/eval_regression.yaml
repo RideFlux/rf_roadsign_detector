@@ -1,15 +1,13 @@
 task_name: eval
 
-# eval_checkpoint: checkpoints/best.ckpt
-eval_checkpoint: checkpoints/best_regression.ckpt
+eval_checkpoint: checkpoints/best_regression_ver219.ckpt
+testset_name: test1
 inference_img_path: test_infer.png
 detection_threshold: 0.5
 
 eval_mode: 0
 # 0: Choose options
-# 1: Visualize in bird's eye view
-# 2: Visualize in 3D point cloud
-# 3: Only quantitative evaluation mode
+# 1: Front view, 2: BEV, 3: Front + BEV, 4: 3D, 5: Quantitative
 
 defaults:
   - _self_

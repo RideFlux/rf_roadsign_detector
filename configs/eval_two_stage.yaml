@@ -1,0 +1,14 @@
+defaults:
+  # Uses the same regression checkpoint and class-preserving data as crop generation.
+  - classifier
+  - _self_
+
+task_name: eval_two_stage
+eval_mode: 0  # 0: menu, 1: front + BEV, 2: quantitative evaluation
+inference_img_path: ${results_dir}/test_infer.png
+device: auto
+classification_checkpoint: classifier_261112_checkpoints/best_model.pth
+testset_name: test1
+distance_threshold: 0.1
+max_samples: null
+results_dir: evaluation_results/two_stage/${now:%Y-%m-%d_%H-%M-%S}

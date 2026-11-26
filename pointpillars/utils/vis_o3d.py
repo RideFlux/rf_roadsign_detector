@@ -119,9 +119,17 @@ def draw_bev(points, gt_box, box=None, gt_label=None, pred_label=None, mode=3, x
             & (y >= y_range[0]) & (y <= y_range[1]) \
             & (z >= z_range[0]) & (z <= z_range[1])
     
+    # Empty-GT frames use the regression candidate's depth for the front view.
+    # If both boxes are absent, display the full point cloud within the ranges.
+    depth_box = gt_box if gt_box is not None else box
+    depth_mask = np.ones(len(points), dtype=bool)
+    if depth_box is not None:
+        depth_mask = ((y <= depth_box[1] + depth_box[4]/2 + 0.5)
+                      & (y >= depth_box[1] - depth_box[4]/2 - 0.5))
+
     # Add bounds checking for pixel coordinates
     valid1 = valid & (px1 >= 40) & (px1 < 40 + w1) & (py1 >= 100) & (py1 < bev_img.shape[0] - 40) & option_1 \
-            & (y <= gt_box[1] + gt_box[4]/2 + 0.5) & (y >= gt_box[1] - gt_box[4]/2 - 0.5)
+            & depth_mask
     valid2 = valid & (px2 >= 40 + (w1 + 40) * option_1) & (px2 < bev_img.shape[1] - 40) & (py2 >= 100) & (py2 < bev_img.shape[0]-40) & option_2
     r = np.minimum(r * 20, 255)
     r_valid1 = r[valid1]

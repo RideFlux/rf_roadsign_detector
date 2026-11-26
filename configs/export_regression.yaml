@@ -1,5 +1,4 @@
-# ckpt_path: checkpoints/best.ckpt
-ckpt_path: checkpoints/best_regression.ckpt
+ckpt_path: checkpoints/best_regression_ver219.ckpt
 training_model: True
 exporting_onnx: False
 

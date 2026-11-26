@@ -187,7 +187,7 @@ def modify_onnx(onnx_simp,
     graph.outputs = [tmap['final_boxes'], tmap['final_labels'], tmap['final_scores']]
     graph.cleanup().toposort()
     onnx_final = gs.export_onnx(graph)
-    onnx.save(onnx_final, "final_regression.onnx")
+    onnx.save(onnx_final, "final_regression_ver219.onnx")
     
     return onnx_final
 

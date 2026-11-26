@@ -16,3 +16,16 @@ Dataset/
 *.txt
 *.pcd
 *.png
+
+# Generated datasets, evaluation output, and exported models.
+evaluation_results/
+*.pkl
+*.npy
+*.onnx
+*.trt
+*.ckpt
+*.pth
+
+# Release checkpoints: keep only these new model artifacts in version control.
+!/checkpoints/best_regression_ver219.ckpt
+!/classifier_261112_checkpoints/best_model.pth

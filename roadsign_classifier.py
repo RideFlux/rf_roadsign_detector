@@ -1,5 +1,4 @@
 import os
-import cv2
 import numpy as np
 import torch
 import torch.nn as nn
@@ -80,7 +79,7 @@ class Classifier(nn.Module):
         # Global Average Pooling
         x = F.adaptive_avg_pool2d(x, (1, 1))  # → (B, C, 1, 1)
         x = x.view(x.size(0), -1)             # → (B, C)
-        
+
         x = F.relu(self.fc1(x))
         x = self.fc2(x)
         return x
@@ -88,12 +87,12 @@ class Classifier(nn.Module):
 if __name__ == "__main__":
     train_dataset = ImageClassificationDataset(
         image_dir='train',
-        label_file='Dataset/train_classification.txt'
+        label_file='Dataset/train_classification_261112.txt'
     )
 
     test_dataset = ImageClassificationDataset(
         image_dir='test',
-        label_file='Dataset/test_classification.txt'
+        label_file='Dataset/test_classification_261112.txt'
     )
 
     train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True)
@@ -104,10 +103,10 @@ if __name__ == "__main__":
     optimizer = optim.Adam(model.parameters(), lr=1e-3)
     writer = SummaryWriter(log_dir='./runs/classification_cv2_acc')
 
-    os.makedirs("classfier_checkpoints", exist_ok=True)
-    best_model_path = "classfier_checkpoints/best_model.pth"
+    os.makedirs("classifier_261112_checkpoints", exist_ok=True)
+    best_model_path = "classifier_261112_checkpoints/best_model.pth"
     best_acc = 0.0
-    num_epochs = 50
+    num_epochs = 200
 
     for epoch in range(num_epochs):
         model.train()
